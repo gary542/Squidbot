@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: /rooms is a reserved Control UI path so share links cannot claim it.
 import { normalizeControlUiBasePath } from "./grammar.js";
 
 const CATALOG_SHARE_PATH_RE = /^([a-z][a-z0-9-]*)\/(?:[a-z0-9]+-)*([a-zA-Z0-9]{12,})$/u;
@@ -38,6 +40,7 @@ export const CONTROL_UI_RESERVED_ROUTE_SEGMENTS: readonly string[] = Object.free
   "plugins",
   "portals",
   "profile",
+  "rooms",
   "sessions",
   "settings",
   "share",

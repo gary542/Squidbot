@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: the sessions table colors a room session.
 import { parseStrictPositiveInteger } from "@openclaw/normalization-core/number-coercion";
 import {
   normalizeOptionalLowercaseString,
@@ -135,6 +137,7 @@ const formatKindCell = (kind: SessionKind, rich: boolean) => {
     cron: theme.muted,
     "spawn-child": theme.muted,
     unknown: theme.muted,
+    room: theme.accentBright,
   };
   return colorize(rich, colors[kind], kind);
 };

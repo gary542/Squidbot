@@ -5,8 +5,9 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { boxEnv, mintBrokerToken, resetBroker, type BrokerGrant } from "./broker.js";
-import { ensureBrokerBase } from "./broker-server.js";
+import { brokerSocketPath, ensureBrokerBase } from "./broker-server.js";
 import { planBwrap } from "./bwrap.js";
+import { writeSeccompProfile } from "./seccomp.js";
 
 const PROVIDERS = [
   { env: "ANTHROPIC_API_KEY", grant: "anthropic", upstream: "https://api.anthropic.com", header: "x-api-key" },
@@ -120,15 +121,21 @@ export async function prepareBoxedExec(input: BoxedExecInput): Promise<BoxedExec
       token: minted.token,
     };
   }
+  const socket = brokerSocketPath();
+  if (socket) childEnv.SQUIDBOT_BROKER_SOCK = socket;
+  const profile = writeSeccompProfile();
   const argv = [
     plan.argv[0]!,
+    ...(profile ? ["--seccomp", "3"] : []),
     "--clearenv",
     ...Object.entries(childEnv).flatMap(([name, value]) => ["--setenv", name, value]),
+    ...(socket ? ["--bind", socket, socket] : []),
     ...plan.argv.slice(1),
   ];
+  const command = `${argv.map(quoteArg).join(" ")}${profile ? ` 3<${quoteArg(profile)}` : ""}`;
   return {
     action: "apply",
-    command: argv.map(quoteArg).join(" "),
+    command,
     env: childEnv,
     mode: "bwrap",
     reason: brokerReason || "planned",

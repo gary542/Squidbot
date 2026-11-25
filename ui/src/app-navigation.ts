@@ -27,6 +27,7 @@ export const SIDEBAR_NAV_ROUTES = [
   "usage",
   "cron",
   "sessions",
+  "rooms",
   "systems",
   "activity",
   "meetings",

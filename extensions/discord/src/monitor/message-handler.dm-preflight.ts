@@ -1,0 +1,91 @@
+import { createLazyRuntimeModule } from "openclaw/plugin-sdk/lazy-runtime";
+import { logVerbose } from "openclaw/plugin-sdk/runtime-env";
+import type { User } from "../internal/discord.js";
+import { handleDiscordDmCommandDecision } from "./dm-command-decision.js";
+import { formatDiscordUserTag } from "./format.js";
+import { prepareDiscordMessageAccess } from "./message-handler.admission.js";
+import type {
+  DiscordMessagePreflightParams,
+  DiscordSenderIdentity,
+} from "./message-handler.preflight.types.js";
+
+const loadConversationRuntime = createLazyRuntimeModule(
+  () => import("openclaw/plugin-sdk/conversation-binding-runtime"),
+);
+
+const loadDiscordSendRuntime = createLazyRuntimeModule(() => import("../send.js"));
+
+export async function resolveDiscordDmPreflightAccess(params: {
+  preflight: DiscordMessagePreflightParams;
+  author: User;
+  sender: DiscordSenderIdentity;
+  conversationId: string;
+}) {
+  const access = await prepareDiscordMessageAccess(params.preflight, {
+    sender: params.sender,
+    authorIsBot: params.author.bot === true,
+    memberRoleIds: [],
+    messageChannelId: params.conversationId,
+    isGuildMessage: false,
+    isDirectMessage: true,
+    isGroupDm: false,
+    threadChannel: null,
+    hasControlCommand: false,
+  });
+  if (!access) {
+    return null;
+  }
+  const dmAccess = access.ingress;
+  if (params.preflight.isPolicyCurrent?.() === false) {
+    return null;
+  }
+  // Session bindings route admitted DMs; current ingress policy owns access.
+  if (access.allowed) {
+    return access;
+  }
+  await handleDiscordDmCommandDecision({
+    senderAccess: dmAccess.senderAccess,
+    accountId: params.preflight.accountId,
+    // Use the resolved sender identity (e.g. PluralKit member UUID) here so
+    // the pairing record is keyed under the same stableId that
+    // resolveDiscordDmCommandAccess / createDiscordDmIngressSubject use on
+    // subsequent inbound messages. Previously this used the raw gateway
+    // author id, which only matched non-PK users.
+    sender: {
+      id: params.sender.isPluralKit ? `pk:${params.sender.id}` : params.sender.id,
+      tag: params.sender.tag ?? formatDiscordUserTag(params.author),
+      name: params.sender.name ?? params.author.username ?? undefined,
+    },
+    onPairingCreated: async (code) => {
+      logVerbose(
+        `discord pairing request sender=${params.author.id} tag=${formatDiscordUserTag(params.author)} reason=${dmAccess.senderAccess.reasonCode}`,
+      );
+      try {
+        const conversationRuntime = await loadConversationRuntime();
+        const { sendMessageDiscord } = await loadDiscordSendRuntime();
+        await sendMessageDiscord(
+          `user:${params.author.id}`,
+          conversationRuntime.buildPairingReply({
+            channel: "discord",
+            idLine: `Your Discord user id: ${params.author.id}`,
+            code,
+          }),
+          {
+            cfg: params.preflight.cfg,
+            token: params.preflight.token,
+            rest: params.preflight.client.rest,
+            accountId: params.preflight.accountId,
+          },
+        );
+      } catch (err) {
+        logVerbose(`discord pairing reply failed for ${params.author.id}: ${String(err)}`);
+      }
+    },
+    onUnauthorized: async () => {
+      logVerbose(
+        `Blocked unauthorized discord sender ${params.sender.id} (dmPolicy=${params.preflight.dmPolicy}, reason=${dmAccess.senderAccess.reasonCode})`,
+      );
+    },
+  });
+  return null;
+}

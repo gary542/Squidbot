@@ -1,0 +1,12 @@
+OpenMausBot
+Copyright 2026 Milind Soni and OpenMausBot contributors
+
+OpenMausBot is licensed under the Apache License, Version 2.0.
+Squidbot keeps this notice for the portions it adapts (usage caps, Composio
+session checks, team export scrubbing, room routing, assignment limits, the
+credential broker, the RFB input filter, and the Noise phone handshake).
+The enterprise/ directory was not copied.
+
+Third-party code inside those portions:
+- T3 Code, MIT, Copyright 2026 T3 Tools Inc. (public-address egress policy)
+- Hermes Agent, MIT, Copyright 2025 Nous Research (RFB input filter)

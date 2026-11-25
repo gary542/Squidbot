@@ -1,0 +1,19 @@
+<!-- Adapted from openclaw/openclaw (MIT) and milind-soni/OpenMausBot (Apache-2.0), modified for Squidbot. -->
+
+Squidbot
+Copyright 2026 Squidbot contributors
+
+This product includes software from OpenClaw (MIT, © 2026 OpenClaw Foundation)
+and OpenMausBot (Apache-2.0, © 2026 Milind Soni and OpenMausBot contributors),
+which in turn adapts code from T3 Code (MIT, © 2026 T3 Tools Inc.) and Hermes
+Agent (MIT, © 2025 Nous Research).
+
+OpenClaw was adapted from Pi / pi-mono (MIT, © 2025 Mario Zechner). The MIT
+notice is preserved in THIRD_PARTY_NOTICES.md and third_party/openclaw/LICENSE.
+
+OpenMausBot's Apache-2.0 license is preserved in third_party/openmausbot/LICENSE.
+Squidbot does not include OpenMausBot's enterprise/ directory.
+
+The OpenClaw and OpenMausBot names, and their logos and mascots, belong to
+their owners. Squidbot is an independent name. Attribution in this file, in
+THIRD_PARTY_NOTICES.md, and in source headers is not a claim to those marks.

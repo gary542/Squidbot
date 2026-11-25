@@ -1,0 +1,75 @@
+export async function prepareGatewayShutdownRuntime() {
+  const [
+    {
+      prepareGatewayClose,
+      completeGatewayClose,
+      drainActiveSessionsForShutdown,
+      runGatewayClosePrelude,
+    },
+    { runGlobalGatewayStopSafely },
+    { flushPendingSessionsChangedEvents },
+    { drainSessionEventPublications },
+    { closeMcpLoopbackServer },
+    { disposeAllBundleLspRuntimes },
+    { drainRetainedOpenAiEmbeddingProviders },
+    { stopGmailWatcher },
+    { stopCronMaintenance },
+    { disposeAllCodeModeRuns },
+    { closeProviderTransportDispatcherPool },
+    { prepareActivePluginRegistryShutdown },
+    { waitForPluginCacheRetirement },
+    { loadSubagentSessionCleanupRuntime },
+    sessionRestartResume,
+    subagentRegistry,
+    { prepareSqliteWorkerBrokerClose },
+    { loadSupervisorLogRuntime },
+  ] = await Promise.all([
+    import("./server-close.runtime.js"),
+    import("../plugins/hook-runner-global.js"),
+    import("./server-methods/session-change-event.js"),
+    import("./session-event-prepared-row.js"),
+    import("./mcp-http.js"),
+    import("../agents/agent-bundle-lsp-runtime.js"),
+    import("./embeddings-provider-lifetime.js"),
+    import("../hooks/gmail-watcher.js"),
+    import("../cron/maintenance.js"),
+    import("../agents/code-mode-state.js"),
+    import("../agents/provider-transport-dispatcher-pool.js"),
+    import("../plugins/runtime.js"),
+    import("../plugins/plugin-cache.js"),
+    import("../agents/subagents/registry/subagent-session-cleanup.js"),
+    import("./session-restart-resume.js"),
+    import("../agents/subagents/registry/subagent-registry.js"),
+    import("../infra/sqlite-worker-store.js"),
+    import("../process/supervisor/released-processes.js"),
+  ]);
+  await Promise.all([
+    prepareActivePluginRegistryShutdown(),
+    loadSubagentSessionCleanupRuntime(),
+    prepareSqliteWorkerBrokerClose(),
+    loadSupervisorLogRuntime(),
+  ]);
+
+  return {
+    prepareGatewayClose,
+    completeGatewayClose,
+    drainActiveSessionsForShutdown,
+    runGatewayClosePrelude,
+    runGlobalGatewayStopSafely,
+    flushPendingSessionsChangedEvents,
+    drainSessionEventPublications,
+    closeMcpLoopbackServer,
+    disposeAllBundleLspRuntimes,
+    drainRetainedOpenAiEmbeddingProviders,
+    stopGmailWatcher,
+    stopCronMaintenance,
+    disposeAllCodeModeRuns,
+    closeProviderTransportDispatcherPool,
+    waitForPluginCacheRetirement,
+    // Close calls late-bound exports through these retained namespaces, never a new import.
+    sessionRestartResume,
+    subagentRegistry,
+  };
+}
+
+export type GatewayShutdownRuntime = Awaited<ReturnType<typeof prepareGatewayShutdownRuntime>>;

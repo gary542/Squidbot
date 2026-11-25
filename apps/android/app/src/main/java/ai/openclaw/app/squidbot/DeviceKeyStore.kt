@@ -16,7 +16,15 @@ import javax.crypto.spec.GCMParameterSpec
 class DeviceKeyStore(context: Context) {
   private val prefs = context.getSharedPreferences("squidbot-phone", Context.MODE_PRIVATE)
 
-  fun save(token: String, deviceId: String, computerPublicKey: String, hostId: String) {
+  fun save(
+    token: String,
+    deviceId: String,
+    computerPublicKey: String,
+    hostId: String,
+    relayHost: String = "127.0.0.1",
+    relayPort: Int = 18790,
+    fingerprint: String = "",
+  ) {
     val cipher = Cipher.getInstance("AES/GCM/NoPadding")
     cipher.init(Cipher.ENCRYPT_MODE, secret())
     val sealed = cipher.doFinal(token.toByteArray(Charsets.UTF_8))
@@ -27,6 +35,9 @@ class DeviceKeyStore(context: Context) {
       .putString("deviceId", deviceId)
       .putString("computerPublicKey", computerPublicKey)
       .putString("hostId", hostId)
+      .putString("relayHost", relayHost)
+      .putInt("relayPort", relayPort)
+      .putString("fingerprint", fingerprint)
       .apply()
   }
 
@@ -39,7 +50,15 @@ class DeviceKeyStore(context: Context) {
     val cipher = Cipher.getInstance("AES/GCM/NoPadding")
     cipher.init(Cipher.DECRYPT_MODE, secret(), GCMParameterSpec(128, java.util.Base64.getUrlDecoder().decode(iv)))
     val opened = cipher.doFinal(java.util.Base64.getUrlDecoder().decode(token)).toString(Charsets.UTF_8)
-    return SavedPhone(opened, deviceId, computerPublicKey, hostId)
+    return SavedPhone(
+      opened,
+      deviceId,
+      computerPublicKey,
+      hostId,
+      prefs.getString("relayHost", null) ?: "127.0.0.1",
+      prefs.getInt("relayPort", 18790),
+      prefs.getString("fingerprint", null) ?: "",
+    )
   }
 
   fun clear() {
@@ -79,4 +98,12 @@ class DeviceKeyStore(context: Context) {
   }
 }
 
-data class SavedPhone(val token: String, val deviceId: String, val computerPublicKey: String, val hostId: String)
+data class SavedPhone(
+  val token: String,
+  val deviceId: String,
+  val computerPublicKey: String,
+  val hostId: String,
+  val relayHost: String = "127.0.0.1",
+  val relayPort: Int = 18790,
+  val fingerprint: String = "",
+)

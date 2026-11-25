@@ -1,8 +1,12 @@
 // Adapted from milind-soni/OpenMausBot (Apache-2.0), modified for Squidbot.
 // Modified: the gateway starts the phone relay only when SQUIDBOT_PHONE_RELAY=1.
 
+import path from "node:path";
+import { relayUsesLocalTls, resolveRelayBind } from "./bind.js";
 import { attachComputerPeer } from "./computer-peer.js";
 import { startPhoneRelay, type PhoneRelay } from "./listener.js";
+import { squidbotStateDir } from "../state-dir.js";
+import { ensurePhoneCertificate } from "./tls-cert.js";
 
 let active: PhoneRelay | undefined;
 let closePeer: (() => void) | undefined;
@@ -17,7 +21,16 @@ export async function startPhoneRelayFromEnv(env: NodeJS.ProcessEnv = process.en
   if (active) return active;
   const parsed = Number(env.SQUIDBOT_PHONE_RELAY_PORT ?? 18790);
   const port = Number.isInteger(parsed) && parsed >= 0 && parsed < 65536 ? parsed : 18790;
-  active = await startPhoneRelay({ port });
+  const bind = resolveRelayBind(env.SQUIDBOT_PHONE_RELAY_BIND);
+  const tls = relayUsesLocalTls(bind.exposed, env.SQUIDBOT_PHONE_RELAY_TLS)
+    ? ensurePhoneCertificate(path.join(squidbotStateDir(env), "squidbot", "phone-tls"))
+    : null;
+  active = await startPhoneRelay({
+    port,
+    bind: env.SQUIDBOT_PHONE_RELAY_BIND,
+    tls,
+    advertise: env.SQUIDBOT_PHONE_RELAY_ADVERTISE,
+  });
   const peer = await attachComputerPeer({ relay: active, env });
   closePeer = () => peer.close();
   return active;

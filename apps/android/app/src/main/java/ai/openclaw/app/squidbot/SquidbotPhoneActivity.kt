@@ -21,7 +21,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import java.net.Socket
 import java.nio.ByteBuffer
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import java.util.Base64
+import javax.net.ssl.SSLContext
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.X509TrustManager
 
 class SquidbotPhoneActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +37,9 @@ class SquidbotPhoneActivity : ComponentActivity() {
         val saved = remember { mutableStateOf(store.load()) }
         val lines = remember { mutableStateListOf<String>() }
         var code by remember { mutableStateOf("") }
+        var relayHost by remember { mutableStateOf("127.0.0.1") }
+        var relayPort by remember { mutableStateOf("18790") }
+        var fingerprint by remember { mutableStateOf("") }
         var draft by remember { mutableStateOf("") }
         var status by remember { mutableStateOf(if (saved.value == null) "Not paired" else "Paired") }
         var stopTurn by remember { mutableStateOf<(() -> Unit)?>(null) }
@@ -39,6 +47,8 @@ class SquidbotPhoneActivity : ComponentActivity() {
           Text("Squidbot", style = MaterialTheme.typography.headlineMedium)
           Text(status)
           if (saved.value == null) {
+            OutlinedTextField(relayHost, { relayHost = it }, label = { Text("Relay host") })
+            OutlinedTextField(relayPort, { relayPort = it }, label = { Text("Relay port") })
             OutlinedTextField(code, { code = it }, label = { Text("Pairing code or QR text") })
             Button(onClick = {
               val parsed = parsePairingPayload(code)
@@ -46,12 +56,24 @@ class SquidbotPhoneActivity : ComponentActivity() {
                 status = "That code is not 8 characters"
                 return@Button
               }
+              if (parsed.host != "127.0.0.1") {
+                relayHost = parsed.host
+                relayPort = parsed.port.toString()
+                fingerprint = parsed.fingerprint
+              }
+              val host = if (parsed.host != "127.0.0.1") parsed.host else relayHost.trim()
+              val port = relayPort.toIntOrNull()
+              if (port == null || port !in 1..65535) {
+                status = "The port is not valid"
+                return@Button
+              }
+              val pin = if (parsed.fingerprint.isNotEmpty()) parsed.fingerprint else fingerprint
               status = "Pairing"
               Thread {
-                val result = runCatching { claim(parsed.code) }
+                val result = runCatching { claim(parsed.code, host, port, pin) }
                 runOnUiThread {
                   result.onSuccess { phone ->
-                    store.save(phone.token, phone.deviceId, phone.computerPublicKey, phone.hostId)
+                    store.save(phone.token, phone.deviceId, phone.computerPublicKey, phone.hostId, phone.relayHost, phone.relayPort, phone.fingerprint)
                     saved.value = phone
                     status = "Paired"
                   }.onFailure { error ->
@@ -95,7 +117,7 @@ class SquidbotPhoneActivity : ComponentActivity() {
             }
             Button(onClick = {
               val phone = saved.value
-              if (phone != null) runCatching { revoke(phone.deviceId) }
+              if (phone != null) runCatching { revoke(phone) }
               store.clear()
               saved.value = null
               status = "Not paired"
@@ -108,8 +130,8 @@ class SquidbotPhoneActivity : ComponentActivity() {
   }
 }
 
-private fun claim(code: String): SavedPhone {
-  Socket("127.0.0.1", 18790).use { socket ->
+private fun claim(code: String, host: String, port: Int, fingerprint: String): SavedPhone {
+  openRelaySocket(host, port, fingerprint).use { socket ->
     writeJson(socket.getOutputStream(), """{"type":"claim","code":"$code"}""")
     val json = readJson(socket.getInputStream())
     if (!json.contains("\"paired\"")) error("Relay refused the code")
@@ -118,6 +140,9 @@ private fun claim(code: String): SavedPhone {
       deviceId = jsonField(json, "deviceId"),
       computerPublicKey = jsonField(json, "computerPublicKey"),
       hostId = jsonField(json, "hostId"),
+      relayHost = host,
+      relayPort = port,
+      fingerprint = fingerprint,
     )
   }
 }
@@ -133,7 +158,7 @@ private fun sendEncrypted(
   onReady: (stop: () -> Unit) -> Unit,
   onChunk: (String) -> Unit,
 ) {
-  Socket("127.0.0.1", 18790).use { socket ->
+  openRelaySocket(phone.relayHost, phone.relayPort, phone.fingerprint).use { socket ->
     val out = socket.getOutputStream()
     val input = socket.getInputStream()
     writeJson(out, """{"type":"phone","hash":"${admissionHash(phone.token, b64(phone.hostId))}"}""")
@@ -158,10 +183,34 @@ private fun sendEncrypted(
   }
 }
 
-private fun revoke(deviceId: String) {
-  Socket("127.0.0.1", 18790).use { socket ->
-    writeJson(socket.getOutputStream(), """{"type":"revoke","deviceId":"$deviceId"}""")
+private fun revoke(phone: SavedPhone) {
+  openRelaySocket(phone.relayHost, phone.relayPort, phone.fingerprint).use { socket ->
+    writeJson(socket.getOutputStream(), """{"type":"revoke","deviceId":"${phone.deviceId}"}""")
   }
+}
+
+private fun openRelaySocket(host: String, port: Int, fingerprint: String): Socket {
+  if (fingerprint.isBlank()) {
+    if (host == "127.0.0.1" || host == "localhost" || host == "::1") return Socket(host, port)
+    error("A cert fingerprint is required off this computer.")
+  }
+  val context = SSLContext.getInstance("TLS")
+  context.init(
+    null,
+    arrayOf(
+      object : X509TrustManager {
+        override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+        override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) {
+          if (chain.isEmpty() || !certificateMatchesPin(chain[0].encoded, fingerprint)) error("Certificate pin mismatch")
+        }
+        override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+      },
+    ),
+    SecureRandom(),
+  )
+  val socket = context.socketFactory.createSocket(host, port) as SSLSocket
+  socket.startHandshake()
+  return socket
 }
 
 private fun writeJson(out: java.io.OutputStream, json: String) {

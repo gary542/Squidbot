@@ -3,10 +3,13 @@
 // Modified: a loopback listener. It splices ciphertext and closes 4404 when the phone is not admitted.
 
 import { createServer, type Server, type Socket } from "node:net";
+import tls from "node:tls";
+import { allowComputerRole, exposureWarning, relayAttemptLimit, resolveRelayBind } from "./bind.js";
 import { credentialHash, keyId, psk } from "./credentials.js";
 import { generateKeyPair, type KeyPair } from "./noise.js";
 import { PairingTable, type PairingCode, type PairedDevice } from "./pairing.js";
 import { RELAY_ABSENT, relayPhoneDecision } from "./relay.js";
+import type { PhoneCertificate } from "./tls-cert.js";
 
 export const RELAY_RATE_LIMITED = 4429;
 const WINDOW_MS = 60_000;
@@ -56,6 +59,10 @@ export function readFrame(socket: Socket): Promise<Record<string, unknown>> {
 
 export interface PhoneRelay {
   port: number;
+  bindHost: string;
+  exposed: boolean;
+  fingerprint: string | null;
+  tls: PhoneCertificate | null;
   hostId: Buffer;
   staticKey: KeyPair;
   close(): Promise<void>;
@@ -66,14 +73,22 @@ export interface PhoneRelay {
   phoneKeys(): ReadonlyArray<{ id: string; psk: Buffer }>;
 }
 
-export async function startPhoneRelay(options: { port?: number; maxAttempts?: number } = {}): Promise<PhoneRelay> {
+export async function startPhoneRelay(options: {
+  port?: number;
+  maxAttempts?: number;
+  bind?: string;
+  tls?: PhoneCertificate | null;
+  advertise?: string;
+  warn?: (message: string) => void;
+} = {}): Promise<PhoneRelay> {
   const pairing = new PairingTable();
   const hostId = Buffer.alloc(16, 3);
   const staticKey = generateKeyPair();
   const forwarded: Buffer[] = [];
   const phoneKeys: Array<{ id: string; psk: Buffer }> = [];
   const attempts = new Map<string, number[]>();
-  const maxAttempts = options.maxAttempts ?? 30;
+  const bind = resolveRelayBind(options.bind);
+  const maxAttempts = options.maxAttempts ?? relayAttemptLimit(bind.exposed);
   let computer: Socket | undefined;
   let online = false;
   let spliced = false;
@@ -85,7 +100,7 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
     return recent.length <= maxAttempts;
   };
 
-  const server: Server = createServer((socket) => {
+  const onConnection = (socket: Socket) => {
     const ip = socket.remoteAddress ?? "unknown";
     void (async () => {
       if (!allow(ip, Date.now())) {
@@ -96,6 +111,11 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
         return;
       }
       const first = await readFrame(socket);
+      if (first.type === "computer" && !allowComputerRole(bind.exposed, ip)) {
+        writeFrame(socket, { type: "close", code: RELAY_ABSENT });
+        socket.end();
+        return;
+      }
       if (first.type === "computer") {
         computer = socket;
         online = true;
@@ -183,21 +203,35 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
     })().catch(() => {
       socket.destroy();
     });
-  });
+  };
+  const server: Server = options.tls
+    ? tls.createServer({ cert: options.tls.cert, key: options.tls.key }, onConnection)
+    : createServer(onConnection);
 
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
-    server.listen(options.port ?? 0, "127.0.0.1", () => resolve());
+    server.listen(options.port ?? 0, bind.host, () => resolve());
   });
   const address = server.address();
   if (!address || typeof address === "string") throw new Error("phone relay did not bind");
+  if (bind.exposed) (options.warn ?? console.warn)(exposureWarning(bind.host, address.port));
+  const fingerprint = options.tls?.fingerprint ?? null;
+  const advertised = options.advertise?.trim() || (bind.host === "0.0.0.0" ? "" : bind.host);
 
   return {
     port: address.port,
+    bindHost: bind.host,
+    exposed: bind.exposed,
+    fingerprint,
+    tls: options.tls ?? null,
     hostId,
     staticKey,
     splicedBytes: () => Buffer.concat(forwarded),
-    issuePairing: (now) => pairing.issue(now),
+    issuePairing: (now) =>
+      pairing.issue(
+        now,
+        fingerprint && advertised ? { host: advertised, port: address.port, fingerprint } : undefined,
+      ),
     claim: (code, now) => pairing.claim(code, hostId, now),
     revoke: (id) => {
       const removed = pairing.revoke(id);

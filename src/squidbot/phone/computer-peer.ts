@@ -1,5 +1,5 @@
 // Adapted from milind-soni/OpenMausBot (Apache-2.0), modified for Squidbot.
-// Modified: the gateway side of a phone chat. It runs an agent turn and streams ciphertext chunks.
+// Modified: the gateway side of a phone chat. It forwards live deltas and can be stopped.
 
 import { mkdtempSync } from "node:fs";
 import { connect, type Socket } from "node:net";
@@ -10,15 +10,23 @@ import { phoneMaterial } from "./client.js";
 import { readFrame, writeFrame, type PhoneRelay } from "./listener.js";
 import { TRANSPORT_RELAY, computerAccept, type KeyPair, type SessionKeys } from "./noise.js";
 import { loadPhoneChat, PHONE_MAX_TURNS, savePhoneChat, type PhoneTranscriptLine } from "./phone-session.js";
-import { phoneChunkFrame, phoneDoneFrame, phoneErrorFrame, runPhoneAgentTurn } from "./phone-turn.js";
+import {
+  PhoneTurnStopped,
+  phoneChunkFrame,
+  phoneDoneFrame,
+  phoneErrorFrame,
+  parsePhoneFrame,
+  runPhoneAgentTurn,
+} from "./phone-turn.js";
 
 export type PhoneTurnRunner = (input: {
   agentId: string;
   sessionKey: string;
   message: string;
   history: readonly PhoneTranscriptLine[];
-  onChunk: (text: string) => Promise<void> | void;
-}) => Promise<void>;
+  signal: AbortSignal;
+  onDelta: (text: string) => Promise<void>;
+}) => Promise<string>;
 
 export async function attachComputerPeer(input: {
   relay: PhoneRelay;
@@ -69,13 +77,30 @@ async function chat(
   },
 ): Promise<void> {
   const chosen = input.agentId?.trim() || input.env.SQUIDBOT_PHONE_AGENT?.trim() || "main";
+  let abort: AbortController | undefined;
+  let inflight = false;
   while (!input.stopped()) {
     const record = await readSized(socket);
-    if (isUnsplice(record)) return;
-    const text = accepted.keys.receive.open(record).toString("utf8");
+    if (isUnsplice(record)) {
+      abort?.abort();
+      return;
+    }
+    let plain = "";
+    try {
+      plain = accepted.keys.receive.open(record).toString("utf8");
+    } catch {
+      continue;
+    }
+    const frame = parsePhoneFrame(plain);
+    if (frame?.kind === "stop") {
+      abort?.abort();
+      continue;
+    }
+    if (inflight) continue;
+    const text = plain;
     const chatState = loadPhoneChat(input.stateDir, accepted.id, chosen);
     if (chatState.turns >= PHONE_MAX_TURNS) {
-      writeSealed(socket, accepted.keys, phoneErrorFrame("loop"));
+      await writeSealed(socket, accepted.keys, phoneErrorFrame("loop"));
       continue;
     }
     const held = evaluateRunAdmission({
@@ -85,32 +110,61 @@ async function chat(
       env: input.env,
     });
     if (held) {
-      writeSealed(socket, accepted.keys, phoneErrorFrame(held.code));
+      await writeSealed(socket, accepted.keys, phoneErrorFrame(held.code));
       continue;
     }
+    abort = new AbortController();
+    const signal = abort.signal;
+    inflight = true;
     const history = chatState.messages;
-    let reply = "";
-    try {
-      await input.runner({
+    let partial = "";
+    void input
+      .runner({
         agentId: chatState.agentId,
         sessionKey: chatState.sessionKey,
         message: text,
         history,
-        onChunk: async (chunk) => {
-          reply += chunk;
-          writeSealed(socket, accepted.keys, phoneChunkFrame(chunk));
+        signal,
+        onDelta: async (delta) => {
+          if (signal.aborted) throw new PhoneTurnStopped();
+          partial += delta;
+          await writeSealed(socket, accepted.keys, phoneChunkFrame(delta));
+          if (signal.aborted) throw new PhoneTurnStopped();
         },
+      })
+      .then(async (finalText) => {
+        const reply = signal.aborted ? partial : finalText || partial;
+        await writeSealed(socket, accepted.keys, phoneDoneFrame(reply, signal.aborted));
+        savePhoneChat(input.stateDir, {
+          ...chatState,
+          messages: [...history, { role: "user", text }, { role: "assistant", text: reply }],
+          turns: chatState.turns + 1,
+        });
+      })
+      .catch(async (error: unknown) => {
+        if (signal.aborted || error instanceof PhoneTurnStopped) {
+          try {
+            await writeSealed(socket, accepted.keys, phoneDoneFrame(partial, true));
+          } catch {
+            // The phone is already gone.
+          }
+          savePhoneChat(input.stateDir, {
+            ...chatState,
+            messages: [...history, { role: "user", text }, { role: "assistant", text: partial }],
+            turns: chatState.turns + 1,
+          });
+          return;
+        }
+        try {
+          await writeSealed(socket, accepted.keys, phoneErrorFrame("failed"));
+        } catch {
+          // The phone is already gone.
+        }
+      })
+      .finally(() => {
+        inflight = false;
+        abort = undefined;
       });
-    } catch {
-      writeSealed(socket, accepted.keys, phoneErrorFrame("failed"));
-      continue;
-    }
-    writeSealed(socket, accepted.keys, phoneDoneFrame());
-    savePhoneChat(input.stateDir, {
-      ...chatState,
-      messages: [...history, { role: "user", text }, { role: "assistant", text: reply }],
-      turns: chatState.turns + 1,
-    });
   }
 }
 
@@ -123,8 +177,17 @@ function isUnsplice(bytes: Buffer): boolean {
   }
 }
 
-function writeSealed(socket: Socket, keys: SessionKeys, value: unknown): void {
-  writeSized(socket, keys.send.seal(Buffer.from(JSON.stringify(value))));
+function writeSealed(socket: Socket, keys: SessionKeys, value: unknown): Promise<void> {
+  const body = keys.send.seal(Buffer.from(JSON.stringify(value)));
+  const header = Buffer.alloc(4);
+  header.writeUInt32BE(body.length);
+  const payload = Buffer.concat([header, body]);
+  const flushed = socket.write(payload);
+  if (flushed) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    socket.once("drain", resolve);
+    socket.once("error", reject);
+  });
 }
 
 async function acceptChat(

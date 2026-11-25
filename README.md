@@ -108,9 +108,10 @@ adb reverse tcp:18790 tcp:18790
 
 An emulator then uses `127.0.0.1:18790` as if the relay were on the phone. Type the
 8-character code, or paste `squidbot-phone:<code>`. Each phone keeps a session
-with the default agent (`SQUIDBOT_PHONE_AGENT` chooses another). Replies stream
-back in chunks. A paused bot, a spend cap, or a 300-turn loop shows a short
-message on the phone. Unpair revokes the device. There is no Play Store build.
+with the default agent (`SQUIDBOT_PHONE_AGENT` chooses another). Assistant
+deltas are forwarded as they are produced. Stop ends the turn. A paused bot, a
+spend cap, or a 300-turn loop shows a short message on the phone. Unpair
+revokes the device. There is no Play Store build.
 
 ## Tests
 

@@ -12,7 +12,7 @@ import { connectPhone, exchangeChat, phoneMaterial } from "./phone/client.js";
 import { attachComputerPeer } from "./phone/computer-peer.js";
 import { readFrame, startPhoneRelay, writeFrame } from "./phone/listener.js";
 import { loadPhoneChat, PHONE_MAX_TURNS, savePhoneChat } from "./phone/phone-session.js";
-import { friendlyPhoneError, runPhoneAgentTurn, streamText } from "./phone/phone-turn.js";
+import { PhoneTurnStopped, friendlyPhoneError, runPhoneAgentTurn } from "./phone/phone-turn.js";
 import { setPaused } from "./pause.js";
 import { noteUsage } from "./usage-ledger.js";
 
@@ -38,10 +38,11 @@ describe("phone agent turns", () => {
       stateDir: dir,
       env: {},
       agentId: "researcher",
-      runner: async ({ sessionKey, message, history, onChunk }) => {
+      runner: async ({ sessionKey, message, history, onDelta }) => {
         seen.push({ sessionKey, message, history: history.map((line) => line.text) });
-        await onChunk("Hello ");
-        await onChunk(message);
+        await onDelta("Hello ");
+        await onDelta(message);
+        return `Hello ${message}`;
       },
     });
     try {
@@ -213,31 +214,140 @@ describe("phone agent turns", () => {
     }
   });
 
-  it("asks the injected agent turn for the phone session and streams that text", async () => {
-    const chunks: string[] = [];
-    await runPhoneAgentTurn({
+  it("forwards assistant deltas before the turn finishes and keeps their order", async () => {
+    const listeners = new Set<(event: { sessionKey?: string; stream?: string; data?: { delta?: unknown; text?: unknown } }) => void>();
+    const deltas: string[] = [];
+    let finished = false;
+    const text = await runPhoneAgentTurn({
       agentId: "main",
       sessionKey: "phone:dev",
       message: "hi",
       history: [],
-      onChunk: (text) => {
-        chunks.push(text);
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
+      onDelta: async (delta) => {
+        assert.equal(finished, false);
+        deltas.push(delta);
+        await new Promise((resolve) => setTimeout(resolve, 5));
       },
       turn: async (input) => {
-        assert.equal(input.agentId, "main");
         assert.equal(input.sessionKey, "phone:dev");
-        assert.equal(input.message, "hi");
-        return "hello from the agent";
+        for (const listener of listeners) {
+          listener({ sessionKey: "phone:dev", stream: "assistant", data: { delta: "Hel" } });
+          listener({ sessionKey: "phone:dev", stream: "assistant", data: { text: "Hello" } });
+        }
+        await new Promise((resolve) => setImmediate(resolve));
+        return "Hello";
       },
     });
-    assert.equal(chunks.join(""), "hello from the agent");
+    finished = true;
+    assert.deepEqual(deltas, ["Hel", "lo"]);
+    assert.equal(text, "Hello");
   });
 
-  it("splits an agent reply into 24-character chunks without a model call", async () => {
-    const chunks: string[] = [];
-    await streamText("abcdefghijklmnopqrstuvwxyz", 24, (text) => {
-      chunks.push(text);
+  it("streams deltas to the phone before the stub finishes, in order", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "squidbot-phone-live-"));
+    const relay = await startPhoneRelay({ port: 0 });
+    let release: (() => void) | undefined;
+    const firstSeen = new Promise<void>((resolve) => {
+      release = resolve;
     });
-    assert.deepEqual(chunks, ["abcdefghijklmnopqrstuvwx", "yz"]);
+    const seen: string[] = [];
+    let runnerFinished = false;
+    const peer = await attachComputerPeer({
+      relay,
+      stateDir: dir,
+      env: {},
+      runner: async ({ onDelta, signal }) => {
+        await onDelta("alpha");
+        await firstSeen;
+        if (signal.aborted) return "alpha";
+        await onDelta("beta");
+        runnerFinished = true;
+        return "alphabeta";
+      },
+    });
+    try {
+      await new Promise((resolve) => setImmediate(resolve));
+      const issued = relay.issuePairing();
+      const paired = await claimCode(relay.port, issued.code);
+      const material = phoneMaterial(String(paired.token), relay.staticKey.publicKey, relay.hostId);
+      const phone = await connectPhone(relay.port, material.admissionHash);
+      assert.ok("socket" in phone);
+      const answer = await exchangeChat({
+        phone: phone.socket,
+        staticKey: relay.staticKey,
+        psk: material.psk,
+        text: "go",
+        onFrame: (frame) => {
+          if (frame.kind !== "chunk") return;
+          if (frame.text === "alpha") {
+            assert.equal(runnerFinished, false);
+            release?.();
+          }
+          seen.push(frame.text);
+        },
+      });
+      assert.deepEqual(seen, ["alpha", "beta"]);
+      assert.equal(answer, "alphabeta");
+      phone.socket.end();
+    } finally {
+      peer.close();
+      await relay.close();
+    }
+  });
+
+  it("stops the turn when the phone sends a stop frame", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "squidbot-phone-stop-"));
+    const relay = await startPhoneRelay({ port: 0 });
+    const seen: string[] = [];
+    let aborted = false;
+    const peer = await attachComputerPeer({
+      relay,
+      stateDir: dir,
+      env: {},
+      runner: async ({ onDelta, signal }) => {
+        await onDelta("alpha");
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(resolve, 2000);
+          signal.addEventListener("abort", () => {
+            clearTimeout(timer);
+            aborted = true;
+            reject(new PhoneTurnStopped());
+          });
+        });
+        await onDelta("beta");
+        return "alphabeta";
+      },
+    });
+    try {
+      await new Promise((resolve) => setImmediate(resolve));
+      const issued = relay.issuePairing();
+      const paired = await claimCode(relay.port, issued.code);
+      const material = phoneMaterial(String(paired.token), relay.staticKey.publicKey, relay.hostId);
+      const phone = await connectPhone(relay.port, material.admissionHash);
+      assert.ok("socket" in phone);
+      const answer = await exchangeChat({
+        phone: phone.socket,
+        staticKey: relay.staticKey,
+        psk: material.psk,
+        text: "go",
+        onFrame: (frame, helpers) => {
+          if (frame.kind === "chunk") {
+            seen.push(frame.text);
+            if (frame.text === "alpha") helpers.stop();
+          }
+        },
+      });
+      assert.deepEqual(seen, ["alpha"]);
+      assert.equal(answer, "alpha");
+      assert.equal(aborted, true);
+      phone.socket.end();
+    } finally {
+      peer.close();
+      await relay.close();
+    }
   });
 });

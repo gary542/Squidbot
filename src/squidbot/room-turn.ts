@@ -7,6 +7,7 @@ export async function runRoomAgentTurn(input: {
   agentId: string;
   sessionKey: string;
   message: string;
+  abortSignal?: AbortSignal;
 }): Promise<string> {
   const { agentCommand } = await import("../agents/agent-command.js");
   const lines: string[] = [];
@@ -21,6 +22,7 @@ export async function runRoomAgentTurn(input: {
       agentId: input.agentId,
       sessionKey: input.sessionKey,
       deliver: false,
+      abortSignal: input.abortSignal,
     },
     runtime,
   );

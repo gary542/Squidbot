@@ -13,6 +13,7 @@ import {
   phoneHello,
   type KeyPair,
 } from "./noise.js";
+import { parsePhoneFrame } from "./phone-turn.js";
 
 export function phoneMaterial(token: string, computerPublicKey: Uint8Array, hostId: Uint8Array) {
   const credHash = credentialHash(token);
@@ -134,6 +135,18 @@ export async function exchangeChat(input: {
   const message2 = await readSized(input.phone);
   const session = hello.finish(message2);
   writeSized(input.phone, session.send.seal(Buffer.from(input.text)));
-  const reply = await readSized(input.phone);
-  return session.receive.open(reply).toString("utf8");
+  const parts: string[] = [];
+  while (true) {
+    const reply = await readSized(input.phone);
+    const frame = parsePhoneFrame(session.receive.open(reply).toString("utf8"));
+    if (!frame) throw new Error("phone frame");
+    if (frame.kind === "chunk") {
+      parts.push(frame.text);
+      continue;
+    }
+    if (frame.kind === "done") return parts.join("");
+    const error = new Error(frame.message);
+    (error as Error & { code?: string }).code = frame.code;
+    throw error;
+  }
 }

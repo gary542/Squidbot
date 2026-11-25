@@ -152,19 +152,32 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
       spliced = true;
       writeFrame(socket, { type: "splice" });
       writeFrame(host, { type: "splice" });
-      const forward = (from: Socket, to: Socket) => {
-        from.on("data", (chunk: Buffer) => {
-          forwarded.push(Buffer.from(chunk));
-          to.write(chunk);
-        });
+      const onPhone = (chunk: Buffer) => {
+        forwarded.push(Buffer.from(chunk));
+        host.write(chunk);
       };
-      forward(socket, host);
-      forward(host, socket);
-      const unsplice = () => {
+      const onHost = (chunk: Buffer) => {
+        forwarded.push(Buffer.from(chunk));
+        socket.write(chunk);
+      };
+      socket.on("data", onPhone);
+      host.on("data", onHost);
+      socket.on("close", () => {
         spliced = false;
-      };
-      socket.on("close", unsplice);
-      host.on("close", unsplice);
+        socket.off("data", onPhone);
+        host.off("data", onHost);
+        const body = Buffer.from(JSON.stringify({ type: "unsplice" }));
+        const header = Buffer.alloc(4);
+        header.writeUInt32BE(body.length);
+        try {
+          host.write(Buffer.concat([header, body]));
+        } catch {
+          // The computer socket is already gone.
+        }
+      });
+      host.on("close", () => {
+        spliced = false;
+      });
       socket.resume();
       host.resume();
     })().catch(() => {

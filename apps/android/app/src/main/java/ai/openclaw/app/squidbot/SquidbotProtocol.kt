@@ -215,6 +215,75 @@ fun sharedX(privateScalar: ByteArray, remoteUncompressed: ByteArray): ByteArray 
   return if (secret.size == 32) secret else secret.copyOfRange(secret.size - 32, secret.size)
 }
 
+sealed class RelayFrame {
+  data class Chunk(val text: String) : RelayFrame()
+  data object Done : RelayFrame()
+  data class Error(val code: String, val message: String) : RelayFrame()
+}
+
+fun phoneChunkJson(text: String): String = """{"v":1,"kind":"chunk","text":"${escapeJson(text)}"}"""
+
+fun phoneDoneJson(): String = """{"v":1,"kind":"done"}"""
+
+fun phoneErrorJson(code: String, message: String): String =
+  """{"v":1,"kind":"error","code":"${escapeJson(code)}","message":"${escapeJson(message)}"}"""
+
+fun friendlyRelayError(code: String): String = when (code) {
+  "bot_held" -> "This bot is paused."
+  "spend_cap" -> "The spend cap is reached."
+  "loop" -> "This chat stopped so it would not keep going."
+  else -> "The bot could not answer."
+}
+
+fun decodeRelayFrame(json: String): RelayFrame? {
+  val kind = jsonStringField(json, "kind") ?: return null
+  return when (kind) {
+    "chunk" -> RelayFrame.Chunk(jsonStringField(json, "text") ?: return null)
+    "done" -> RelayFrame.Done
+    "error" -> RelayFrame.Error(jsonStringField(json, "code") ?: return null, jsonStringField(json, "message") ?: return null)
+    else -> null
+  }
+}
+
+private fun escapeJson(text: String): String = buildString {
+  for (ch in text) {
+    when (ch) {
+      '\\' -> append("\\\\")
+      '"' -> append("\\\"")
+      '\n' -> append("\\n")
+      else -> append(ch)
+    }
+  }
+}
+
+private fun jsonStringField(json: String, name: String): String? {
+  val key = "\"$name\""
+  val keyAt = json.indexOf(key)
+  if (keyAt < 0) return null
+  var index = keyAt + key.length
+  while (index < json.length && json[index] != '"') index += 1
+  if (index >= json.length) return null
+  index += 1
+  val out = StringBuilder()
+  while (index < json.length) {
+    val ch = json[index]
+    if (ch == '"') return out.toString()
+    if (ch == '\\' && index + 1 < json.length) {
+      when (json[index + 1]) {
+        '"' -> out.append('"')
+        '\\' -> out.append('\\')
+        'n' -> out.append('\n')
+        else -> out.append(json[index + 1])
+      }
+      index += 2
+      continue
+    }
+    out.append(ch)
+    index += 1
+  }
+  return null
+}
+
 class PhoneSession(private val send: CipherState, private val receive: CipherState) {
   fun seal(text: String): ByteArray = send.encrypt(ByteArray(0), text.toByteArray(Charsets.UTF_8))
   fun open(record: ByteArray): String = receive.decrypt(ByteArray(0), record).toString(Charsets.UTF_8)

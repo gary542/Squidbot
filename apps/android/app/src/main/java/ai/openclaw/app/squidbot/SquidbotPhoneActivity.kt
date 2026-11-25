@@ -34,6 +34,7 @@ class SquidbotPhoneActivity : ComponentActivity() {
         var code by remember { mutableStateOf("") }
         var draft by remember { mutableStateOf("") }
         var status by remember { mutableStateOf(if (saved.value == null) "Not paired" else "Paired") }
+        var stopTurn by remember { mutableStateOf<(() -> Unit)?>(null) }
         Column(Modifier.fillMaxSize().padding(16.dp)) {
           Text("Squidbot", style = MaterialTheme.typography.headlineMedium)
           Text(status)
@@ -72,17 +73,26 @@ class SquidbotPhoneActivity : ComponentActivity() {
               lines.add("")
               Thread {
                 val result = runCatching {
-                  sendEncrypted(phone, text) { chunk ->
+                  sendEncrypted(phone, text, { stop ->
+                    runOnUiThread { stopTurn = stop }
+                  }) { chunk ->
                     runOnUiThread { lines[replyAt] = lines[replyAt] + chunk }
                   }
                 }
                 runOnUiThread {
+                  stopTurn = null
                   result.onFailure { error ->
                     lines[replyAt] = error.message ?: "Send failed"
                   }
                 }
               }.start()
             }) { Text("Send") }
+            if (stopTurn != null) {
+              Button(onClick = {
+                stopTurn?.invoke()
+                status = "Stopping"
+              }) { Text("Stop") }
+            }
             Button(onClick = {
               val phone = saved.value
               if (phone != null) runCatching { revoke(phone.deviceId) }
@@ -117,7 +127,12 @@ private fun jsonField(json: String, name: String): String {
   return match.groupValues[1]
 }
 
-private fun sendEncrypted(phone: SavedPhone, text: String, onChunk: (String) -> Unit) {
+private fun sendEncrypted(
+  phone: SavedPhone,
+  text: String,
+  onReady: (stop: () -> Unit) -> Unit,
+  onChunk: (String) -> Unit,
+) {
   Socket("127.0.0.1", 18790).use { socket ->
     val out = socket.getOutputStream()
     val input = socket.getInputStream()
@@ -130,11 +145,13 @@ private fun sendEncrypted(phone: SavedPhone, text: String, onChunk: (String) -> 
     writeSized(out, hello.message1)
     val session = hello.finish(readSized(input))
     writeSized(out, session.seal(text))
+    onReady { writeSized(out, session.seal(phoneStopJson())) }
     while (true) {
       val frame = decodeRelayFrame(session.open(readSized(input))) ?: error("The bot could not answer.")
       when (frame) {
         is RelayFrame.Chunk -> onChunk(frame.text)
-        RelayFrame.Done -> return
+        is RelayFrame.Done -> return
+        RelayFrame.Stop -> Unit
         is RelayFrame.Error -> error(friendlyRelayError(frame.code))
       }
     }

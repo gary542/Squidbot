@@ -217,13 +217,16 @@ fun sharedX(privateScalar: ByteArray, remoteUncompressed: ByteArray): ByteArray 
 
 sealed class RelayFrame {
   data class Chunk(val text: String) : RelayFrame()
-  data object Done : RelayFrame()
+  data class Done(val text: String, val stopped: Boolean) : RelayFrame()
+  data object Stop : RelayFrame()
   data class Error(val code: String, val message: String) : RelayFrame()
 }
 
 fun phoneChunkJson(text: String): String = """{"v":1,"kind":"chunk","text":"${escapeJson(text)}"}"""
 
-fun phoneDoneJson(): String = """{"v":1,"kind":"done"}"""
+fun phoneDoneJson(text: String): String = """{"v":1,"kind":"done","text":"${escapeJson(text)}"}"""
+
+fun phoneStopJson(): String = """{"v":1,"kind":"stop"}"""
 
 fun phoneErrorJson(code: String, message: String): String =
   """{"v":1,"kind":"error","code":"${escapeJson(code)}","message":"${escapeJson(message)}"}"""
@@ -239,7 +242,8 @@ fun decodeRelayFrame(json: String): RelayFrame? {
   val kind = jsonStringField(json, "kind") ?: return null
   return when (kind) {
     "chunk" -> RelayFrame.Chunk(jsonStringField(json, "text") ?: return null)
-    "done" -> RelayFrame.Done
+    "done" -> RelayFrame.Done(jsonStringField(json, "text") ?: "", json.contains("\"stopped\":true"))
+    "stop" -> RelayFrame.Stop
     "error" -> RelayFrame.Error(jsonStringField(json, "code") ?: return null, jsonStringField(json, "message") ?: return null)
     else -> null
   }

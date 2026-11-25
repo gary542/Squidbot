@@ -114,8 +114,9 @@ describe("phone relay listener", () => {
       relay,
       stateDir: dir,
       env: {},
-      runner: async ({ message, onChunk }) => {
-        await onChunk(`Squidbot: ${message}`);
+      runner: async ({ message, onDelta }) => {
+        await onDelta(`Squidbot: ${message}`);
+        return `Squidbot: ${message}`;
       },
     });
     try {

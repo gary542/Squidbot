@@ -9,11 +9,14 @@ object SquidbotProtocolTest
 
 fun main() {
   check(phoneChunkJson("Hi") == """{"v":1,"kind":"chunk","text":"Hi"}""")
-  check(phoneDoneJson() == """{"v":1,"kind":"done"}""")
+  check(phoneDoneJson("Hello") == """{"v":1,"kind":"done","text":"Hello"}""")
+  check(phoneStopJson() == """{"v":1,"kind":"stop"}""")
   check(phoneErrorJson("bot_held", friendlyRelayError("bot_held")) == """{"v":1,"kind":"error","code":"bot_held","message":"This bot is paused."}""")
   val chunk = decodeRelayFrame(phoneChunkJson("Hello \"there\""))
   check(chunk is RelayFrame.Chunk && chunk.text == "Hello \"there\"")
-  check(decodeRelayFrame(phoneDoneJson()) == RelayFrame.Done)
+  check(decodeRelayFrame(phoneStopJson()) == RelayFrame.Stop)
+  val done = decodeRelayFrame(phoneDoneJson("Hello"))
+  check(done is RelayFrame.Done && done.text == "Hello" && !done.stopped)
   val error = decodeRelayFrame(phoneErrorJson("spend_cap", friendlyRelayError("spend_cap")))
   check(error is RelayFrame.Error && error.code == "spend_cap" && error.message == "The spend cap is reached.")
   check(friendlyRelayError("loop") == "This chat stopped so it would not keep going.")

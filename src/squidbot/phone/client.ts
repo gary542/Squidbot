@@ -116,3 +116,24 @@ export async function deliverSealedMessage(input: {
   const record = await readSized(input.computer);
   return { record, sealed, receive: accepted.keys.receive };
 }
+
+/** Phone-only chat through an already spliced socket. The computer peer answers on the other side. */
+export async function exchangeChat(input: {
+  phone: Socket;
+  staticKey: KeyPair;
+  psk: Buffer;
+  text: string;
+}): Promise<string> {
+  const conn = newConn();
+  const hello = phoneHello(
+    { remoteStatic: input.staticKey.publicKey, psk: input.psk, transport: TRANSPORT_RELAY },
+    encodePayload1(conn, "phone"),
+    conn.toString("base64url"),
+  );
+  writeSized(input.phone, hello.message1);
+  const message2 = await readSized(input.phone);
+  const session = hello.finish(message2);
+  writeSized(input.phone, session.send.seal(Buffer.from(input.text)));
+  const reply = await readSized(input.phone);
+  return session.receive.open(reply).toString("utf8");
+}

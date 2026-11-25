@@ -35,6 +35,11 @@ const MODIFIED = [
   "packages/session-url-contract/src/share.ts",
   "src/gateway/server.ts",
   "scripts/squidbot-phone.mjs",
+  "apps/android/app/src/main/java/ai/openclaw/app/squidbot/SquidbotProtocol.kt",
+  "apps/android/app/src/main/java/ai/openclaw/app/squidbot/SquidbotPhoneActivity.kt",
+  "apps/android/app/src/main/java/ai/openclaw/app/squidbot/DeviceKeyStore.kt",
+  "apps/android/app/src/test/java/ai/openclaw/app/squidbot/SquidbotProtocolTest.kt",
+  "apps/android/app/src/test/java/ai/openclaw/app/squidbot/SquidbotProtocolJunitTest.kt",
   "README.md",
   "NOTICE",
 ];

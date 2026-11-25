@@ -42,7 +42,7 @@ State defaults to `~/.squidbot` unless `OPENCLAW_STATE_DIR` or
 | 1 | Done | Usage caps, pause, Composio grants (your project key only), team export and import |
 | 2 | Wired, flag off | Exec uses bubblewrap when `SQUIDBOT_BOT_BOX=1`. The broker swaps `sqd_t0_` tokens for the real key and streams the upstream response. A seccomp profile blocks ptrace, and the broker socket is mounted into the box. With `SQUIDBOT_DESKTOPS=1`, Podman and SSH desktops start and stop, and the viewer is at `/desktops`. |
 | 3 | Wired, flag off | With `SQUIDBOT_ROOMS=1`, the chosen bot runs an agent turn. Rooms are stored in sqlite. Rooms is in the Control UI sidebar. `SQUIDBOT_ROOM_DECIDER=model` asks the model who should answer, and the lead answers if that fails. |
-| 4 | Wired, flag off | A loopback relay listens when `SQUIDBOT_PHONE_RELAY=1`. Pair with a short code, then the phone and computer speak Noise. The relay stores admission hashes and closes 4404 for everyone else. |
+| 4 | Wired, flag off | A loopback relay listens when `SQUIDBOT_PHONE_RELAY=1`. Pair with a short code, then the phone and computer speak Noise. The Android client claims the code, chats, and can unpair. The relay stores admission hashes and closes 4404 for everyone else. |
 
 ### Caps and pause
 
@@ -92,10 +92,23 @@ then treat it as enabled.
 | `SQUIDBOT_BOT_BOX` | 2 | The broker proxies upstream. The seccomp profile is x86_64 only. |
 | `SQUIDBOT_DESKTOPS` | 2 | Podman and SSH desktops can be started and stopped. The viewer is at `/desktops`. |
 | `SQUIDBOT_ROOMS` | 3 | Room turns, sqlite sessions, and the sidebar are wired. `SQUIDBOT_ROOM_DECIDER=model` is optional. |
-| `SQUIDBOT_PHONE_RELAY` | 4 | The listener is wired. There is still no native phone app. |
+| `SQUIDBOT_PHONE_RELAY` | 4 | The listener is loopback-only. The Android client is in `apps/android` and reaches it with `adb reverse tcp:18790 tcp:18790`. |
 
 Boat cloud desktops and any paid hosted broker are not included. Nothing here
 spends money or deploys.
+
+## Phone app
+
+The Android client is a second launcher icon named Squidbot inside `apps/android`.
+The relay stays on `127.0.0.1:18790`. From a computer that is running the relay:
+
+```bash
+adb reverse tcp:18790 tcp:18790
+```
+
+An emulator then uses `127.0.0.1:18790` as if the relay were on the phone. Type the
+8-character code, or paste `squidbot-phone:<code>`. Unpair revokes the device.
+There is no Play Store build.
 
 ## Tests
 

@@ -90,6 +90,7 @@ const APP_ROUTE_DEFINITIONS = {
   worktrees: { path: "/worktrees", aliases: ["/settings/worktrees"] },
   sessions: { path: "/sessions", aliases: ["/settings/sessions"] },
   rooms: { path: "/rooms" },
+  desktops: { path: "/desktops" },
   systems: { path: "/systems" },
   usage: { path: "/usage" },
   debug: { path: "/debug" },

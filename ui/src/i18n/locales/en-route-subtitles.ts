@@ -24,6 +24,7 @@ const enRouteSubtitles = {
     plugins: "Add capabilities with plugins.",
     skillWorkshop: "Skills your agent learned, recent changes, and undo.",
     devices: "Manage paired devices and connection requests.",
+    desktops: "Per-agent desktops and the viewer.",
     templates: "Explore and add official Templates.",
     cloudWorkers: "Manage repository snapshots and cloud devices.",
     chat: "Gateway chat for quick interventions.",

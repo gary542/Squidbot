@@ -21,6 +21,8 @@ const MODIFIED = [
   "ui/index.html",
   "ui/src/components/theme-brand-label.ts",
   "src/agents/system-prompt-control.ts",
+  "src/agents/bash-tools.exec-request-preparation.ts",
+  "src/gateway/desktop/computer-service.ts",
   "README.md",
   "NOTICE",
 ];

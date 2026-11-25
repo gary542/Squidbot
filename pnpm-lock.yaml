@@ -653,7 +653,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -666,7 +666,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -913,7 +913,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -979,7 +979,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
       ws:
@@ -1252,7 +1252,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1293,7 +1293,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1339,7 +1339,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1437,7 +1437,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1453,7 +1453,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1512,7 +1512,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1574,7 +1574,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1599,7 +1599,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1665,7 +1665,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1708,7 +1708,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1721,7 +1721,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1770,7 +1770,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1836,7 +1836,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1871,7 +1871,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1887,7 +1887,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1939,7 +1939,7 @@ importers:
       jose:
         specifier: 6.2.14
         version: 6.2.14
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -1984,7 +1984,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2012,7 +2012,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2046,7 +2046,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2135,7 +2135,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2196,7 +2196,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2209,7 +2209,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2225,7 +2225,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2286,7 +2286,7 @@ importers:
       '@openclaw/whatsapp':
         specifier: workspace:*
         version: link:../whatsapp
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
       vite:
@@ -2320,7 +2320,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2438,7 +2438,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2447,7 +2447,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2508,7 +2508,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2517,7 +2517,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2548,7 +2548,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2579,7 +2579,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2598,7 +2598,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2686,7 +2686,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2748,7 +2748,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2788,7 +2788,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2819,7 +2819,7 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2857,7 +2857,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2876,7 +2876,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -2885,7 +2885,7 @@ importers:
       '@openclaw/plugin-sdk':
         specifier: workspace:*
         version: link:../../packages/plugin-sdk
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -3065,7 +3065,7 @@ importers:
         specifier: 7.1.1
         version: 7.1.1
     devDependencies:
-      squidbot:
+      openclaw:
         specifier: workspace:*
         version: link:../..
 
@@ -3351,6 +3351,9 @@ importers:
       libdeflate:
         specifier: 0.1.0
         version: 0.1.0
+      openclaw:
+        specifier: workspace:*
+        version: link:..
       pako:
         specifier: 3.0.3
         version: 3.0.3
@@ -3360,9 +3363,6 @@ importers:
       postcss:
         specifier: 8.5.32
         version: 8.5.32
-      squidbot:
-        specifier: workspace:*
-        version: link:..
       vite:
         specifier: 8.3.5
         version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)

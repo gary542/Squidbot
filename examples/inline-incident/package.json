@@ -14,10 +14,10 @@
     "validate": "openclaw plugins validate --root ."
   },
   "peerDependencies": {
-    "squidbot": "*"
+    "openclaw": "*"
   },
   "devDependencies": {
     "esbuild": "0.28.2",
-    "squidbot": "workspace:*"
+    "openclaw": "workspace:*"
   }
 }

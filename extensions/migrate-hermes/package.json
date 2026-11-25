@@ -10,13 +10,13 @@
   },
   "devDependencies": {
     "@openclaw/plugin-sdk": "workspace:*",
-    "squidbot": "workspace:*"
+    "openclaw": "workspace:*"
   },
   "peerDependencies": {
-    "squidbot": ">=2026.11.10"
+    "openclaw": ">=2026.11.10"
   },
   "peerDependenciesMeta": {
-    "squidbot": {
+    "openclaw": {
       "optional": true
     }
   },

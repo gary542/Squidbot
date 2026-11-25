@@ -30,6 +30,8 @@ const MODIFIED = [
   "ui/src/app-routes.ts",
   "ui/src/pages/rooms/route.ts",
   "ui/src/pages/rooms/room-page.tsx",
+  "ui/src/pages/desktops/route.ts",
+  "ui/src/pages/desktops/desktops-page.tsx",
   "packages/session-url-contract/src/share.ts",
   "src/gateway/server.ts",
   "scripts/squidbot-phone.mjs",

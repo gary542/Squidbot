@@ -1032,6 +1032,7 @@ const startupEnglish = {
     plugins: "Plugins",
     skillWorkshop: "Skill workshop",
     devices: "Devices",
+    desktops: "Desktops",
     templates: "Templates",
     cloudWorkers: "Cloud environments",
     chat: "Chat",

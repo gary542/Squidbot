@@ -66,6 +66,7 @@ import { page as portalsPage } from "./pages/portals/route.ts";
 import { page as profilePage } from "./pages/profile/route.ts";
 import { page as searchPage } from "./pages/search/route.ts";
 import { page as secretsPage } from "./pages/secrets/route.ts";
+import { page as desktopsPage } from "./pages/desktops/route.ts";
 import { page as roomsPage } from "./pages/rooms/route.ts";
 import { page as sessionsPage } from "./pages/sessions/route.ts";
 import { page as skillWorkshopPage } from "./pages/skill-workshop/route.ts";
@@ -121,6 +122,7 @@ const APP_ROUTE_TREE = [
   worktreesPage,
   sessionsPage,
   roomsPage,
+  desktopsPage,
   systemsPage,
   secretsPage,
   searchPage,

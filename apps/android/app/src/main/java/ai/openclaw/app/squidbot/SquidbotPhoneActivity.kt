@@ -64,10 +64,24 @@ class SquidbotPhoneActivity : ComponentActivity() {
             OutlinedTextField(draft, { draft = it }, label = { Text("Message") })
             Button(onClick = {
               val phone = saved.value ?: return@Button
-              val answer = runCatching { sendEncrypted(phone, draft) }.getOrElse { it.message ?: "send failed" }
-              lines.add("You: $draft")
-              lines.add(answer)
+              val text = draft
+              if (text.isBlank()) return@Button
               draft = ""
+              lines.add("You: $text")
+              val replyAt = lines.size
+              lines.add("")
+              Thread {
+                val result = runCatching {
+                  sendEncrypted(phone, text) { chunk ->
+                    runOnUiThread { lines[replyAt] = lines[replyAt] + chunk }
+                  }
+                }
+                runOnUiThread {
+                  result.onFailure { error ->
+                    lines[replyAt] = error.message ?: "Send failed"
+                  }
+                }
+              }.start()
             }) { Text("Send") }
             Button(onClick = {
               val phone = saved.value
@@ -103,20 +117,27 @@ private fun jsonField(json: String, name: String): String {
   return match.groupValues[1]
 }
 
-private fun sendEncrypted(phone: SavedPhone, text: String): String {
+private fun sendEncrypted(phone: SavedPhone, text: String, onChunk: (String) -> Unit) {
   Socket("127.0.0.1", 18790).use { socket ->
     val out = socket.getOutputStream()
     val input = socket.getInputStream()
     writeJson(out, """{"type":"phone","hash":"${admissionHash(phone.token, b64(phone.hostId))}"}""")
     val reply = readJson(input)
-    if (!reply.contains("\"splice\"")) return "Relay refused the phone"
+    if (!reply.contains("\"splice\"")) error("Relay refused the phone")
     val remote = b64(phone.computerPublicKey)
     val secret = phonePsk(phone.token, remote)
     val hello = phoneHello(remote, secret, ByteArray(32) { 9 }, """{"v":1,"conn":"${b64u(ByteArray(16) { 3 })}","app":"phone"}""".toByteArray())
     writeSized(out, hello.message1)
     val session = hello.finish(readSized(input))
     writeSized(out, session.seal(text))
-    return session.open(readSized(input))
+    while (true) {
+      val frame = decodeRelayFrame(session.open(readSized(input))) ?: error("The bot could not answer.")
+      when (frame) {
+        is RelayFrame.Chunk -> onChunk(frame.text)
+        RelayFrame.Done -> return
+        is RelayFrame.Error -> error(friendlyRelayError(frame.code))
+      }
+    }
   }
 }
 

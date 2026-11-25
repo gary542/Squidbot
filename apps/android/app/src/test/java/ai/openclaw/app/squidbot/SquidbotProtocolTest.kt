@@ -8,6 +8,15 @@ import java.util.Base64
 object SquidbotProtocolTest
 
 fun main() {
+  check(phoneChunkJson("Hi") == """{"v":1,"kind":"chunk","text":"Hi"}""")
+  check(phoneDoneJson() == """{"v":1,"kind":"done"}""")
+  check(phoneErrorJson("bot_held", friendlyRelayError("bot_held")) == """{"v":1,"kind":"error","code":"bot_held","message":"This bot is paused."}""")
+  val chunk = decodeRelayFrame(phoneChunkJson("Hello \"there\""))
+  check(chunk is RelayFrame.Chunk && chunk.text == "Hello \"there\"")
+  check(decodeRelayFrame(phoneDoneJson()) == RelayFrame.Done)
+  val error = decodeRelayFrame(phoneErrorJson("spend_cap", friendlyRelayError("spend_cap")))
+  check(error is RelayFrame.Error && error.code == "spend_cap" && error.message == "The spend cap is reached.")
+  check(friendlyRelayError("loop") == "This chat stopped so it would not keep going.")
   val json = SquidbotProtocolTest::class.java.getResourceAsStream("/squidbot-noise-vector.json")?.bufferedReader()?.readText()
     ?: File("apps/android/app/src/test/resources/squidbot-noise-vector.json").readText()
   check(parsePairingPayload("squidbot-phone:AB23EFGH")?.code == "AB23EFGH")

@@ -2,6 +2,9 @@
 // Modified: listening relay tests for handshake, pairing, 4404, revocation, tamper, and rate limit.
 
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { describe, it } from "node:test";
 import { connectComputer, connectPhone, deliverSealedMessage, exchangeChat, phoneMaterial } from "./phone/client.js";
 import { attachComputerPeer } from "./phone/computer-peer.js";
@@ -106,7 +109,15 @@ describe("phone relay listener", () => {
 
   it("pairs over the relay, chats, and unpairs", async () => {
     const relay = await startPhoneRelay({ port: 0 });
-    const peer = await attachComputerPeer({ relay });
+    const dir = mkdtempSync(path.join(tmpdir(), "squidbot-phone-echo-"));
+    const peer = await attachComputerPeer({
+      relay,
+      stateDir: dir,
+      env: {},
+      runner: async ({ message, onChunk }) => {
+        await onChunk(`Squidbot: ${message}`);
+      },
+    });
     try {
       await new Promise((resolve) => setImmediate(resolve));
       const issued = relay.issuePairing();

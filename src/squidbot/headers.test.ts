@@ -40,6 +40,8 @@ const MODIFIED = [
   "apps/android/app/src/main/java/ai/openclaw/app/squidbot/DeviceKeyStore.kt",
   "apps/android/app/src/test/java/ai/openclaw/app/squidbot/SquidbotProtocolTest.kt",
   "apps/android/app/src/test/java/ai/openclaw/app/squidbot/SquidbotProtocolJunitTest.kt",
+  "src/squidbot/phone/phone-session.ts",
+  "src/squidbot/phone/phone-turn.ts",
   "README.md",
   "NOTICE",
 ];

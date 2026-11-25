@@ -17,13 +17,13 @@
     "@openclaw/plugin-sdk": "workspace:*",
     "@solidjs/compiler": "2.0.0-rc.18",
     "esbuild": "0.28.2",
-    "squidbot": "workspace:*"
+    "openclaw": "workspace:*"
   },
   "peerDependencies": {
-    "squidbot": ">=2026.11.10"
+    "openclaw": ">=2026.11.10"
   },
   "peerDependenciesMeta": {
-    "squidbot": {
+    "openclaw": {
       "optional": true
     }
   },

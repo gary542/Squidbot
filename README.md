@@ -26,9 +26,10 @@ pnpm squidbot gateway status
 pnpm squidbot dashboard
 ```
 
-The product command is `squidbot`. A compatibility command named `openclaw`
-remains so the upstream build scripts keep working. When you launch
-`squidbot`, the banner and the command name say Squidbot.
+The product command is `squidbot`. The npm package name stays `openclaw`
+because plugins import that specifier, and the `openclaw` command remains
+so the upstream build scripts keep working. When you launch `squidbot`, the
+banner and the command name say Squidbot.
 
 State defaults to `~/.squidbot` unless `OPENCLAW_STATE_DIR` or
 `SQUIDBOT_STATE_DIR` is set. Caps and pause live in `<state>/squidbot/`.
@@ -39,7 +40,7 @@ State defaults to `~/.squidbot` unless `OPENCLAW_STATE_DIR` or
 |---|---|---|
 | 0 | Done | Rebranded snapshot, Apache-2.0, attribution headers, `pnpm test:squidbot` |
 | 1 | Done | Usage caps, pause, Composio grants (your project key only), team export and import |
-| 2 | Library, flag off | Credential broker, bubblewrap plan, public-address egress, git push guard, desktop lease and RFB filter |
+| 2 | Wired, flag off | Exec uses bubblewrap when `SQUIDBOT_BOT_BOX=1` and `bwrap` exists, otherwise a token-only fallback. Computer status observes per-agent Podman and SSH desktops when `SQUIDBOT_DESKTOPS=1`. |
 | 3 | Library, flag off | Room responder choice, assignment tree limits, team import rollback |
 | 4 | Library, flag off | Noise handshake and a blind relay admission check (close 4404) |
 
@@ -88,8 +89,8 @@ then treat it as enabled.
 
 | Variable | Phase | Still to wire |
 |---|---|---|
-| `SQUIDBOT_BOT_BOX` | 2 | Launch `bwrap` around CLI harnesses and proxy the broker on a unix socket |
-| `SQUIDBOT_DESKTOPS` | 2 | Podman local VM, SSH Docker, and the Control UI viewer |
+| `SQUIDBOT_BOT_BOX` | 2 | Exec is wrapped. A live seccomp profile and unix-socket bridge are still open. |
+| `SQUIDBOT_DESKTOPS` | 2 | Podman and SSH plans are observed. The Control UI does not yet embed the viewer. |
 | `SQUIDBOT_ROOMS` | 3 | A room session kind in the session controller, using the gateway decision model |
 | `SQUIDBOT_PHONE_RELAY` | 4 | A listening relay process and a phone client. Mobile apps are not in this repo |
 

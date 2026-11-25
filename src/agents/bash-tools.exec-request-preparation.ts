@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: exec preparation applies the Squidbot credential broker when SQUIDBOT_BOT_BOX=1.
 import { isRecord } from "@openclaw/normalization-core/record-coerce";
 import { normalizeOptionalString } from "@openclaw/normalization-core/string-coerce";
 import type { SystemRunExecutionContext } from "../../packages/gateway-protocol/src/system-run-execution-context.js";
@@ -42,6 +44,7 @@ import {
   isVisibleSpawnedSession,
 } from "./subagents/spawn/subagent-capabilities.js";
 import { ToolInputError } from "./tools/common.js";
+import { prepareBoxedExec } from "../squidbot/boxed-exec.js";
 
 export type ExecToolArgs = Record<string, unknown> & {
   command: string;
@@ -293,13 +296,37 @@ export function createExecRequestPreparation(params: {
     if (resolvedExecEnvPreparedStates.has(execParams)) {
       return execParams;
     }
+    const rememberExecEnv = async (
+      pluginEnv: Record<string, string> | undefined,
+      host?: ExecHost,
+    ): Promise<ExecToolArgs> => {
+      const boxed = await prepareBoxedExec({
+        command: execParams.command,
+        agentId: context?.hookContext?.agentId ?? params.agentId,
+        sessionKey: context?.hookContext?.sessionKey ?? params.defaults?.sessionKey,
+        workspace: typeof execParams.workdir === "string" ? execParams.workdir : params.defaults?.cwd,
+      });
+      if (boxed.action === "apply") {
+        execParams.command = boxed.command;
+        const merged = { ...pluginEnv, ...boxed.env };
+        resolvedExecEnvPreparedStates.set(execParams, {
+          ...(host ? { host } : {}),
+          ...(Object.keys(merged).length > 0 ? { pluginEnv: merged } : {}),
+        });
+        return execParams;
+      }
+      resolvedExecEnvPreparedStates.set(execParams, {
+        ...(host ? { host } : {}),
+        ...(pluginEnv ? { pluginEnv } : {}),
+      });
+      return execParams;
+    };
     const hookRunner = getGlobalHookRunner();
     if (
       !hookRunner?.hasHooks("resolve_exec_env") ||
       typeof hookRunner.runResolveExecEnv !== "function"
     ) {
-      resolvedExecEnvPreparedStates.set(execParams, {});
-      return execParams;
+      return rememberExecEnv(undefined);
     }
     let host: ExecHost;
     try {
@@ -326,11 +353,7 @@ export function createExecRequestPreparation(params: {
       },
     );
     const pluginEnv = filterPluginExecEnv(rawPluginEnv);
-    resolvedExecEnvPreparedStates.set(execParams, {
-      host,
-      ...(pluginEnv ? { pluginEnv } : {}),
-    });
-    return execParams;
+    return rememberExecEnv(pluginEnv, host);
   };
 
   const prepareBeforeToolCallParams = async (

@@ -19,13 +19,13 @@
     "@microsoft/teams.common": "2.1.1",
     "@openclaw/plugin-sdk": "workspace:*",
     "jose": "6.2.14",
-    "squidbot": "workspace:*"
+    "openclaw": "workspace:*"
   },
   "peerDependencies": {
-    "squidbot": ">=2026.11.10"
+    "openclaw": ">=2026.11.10"
   },
   "peerDependenciesMeta": {
-    "squidbot": {
+    "openclaw": {
       "optional": true
     }
   },

@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: computer status observes per-agent Podman and SSH desktops when SQUIDBOT_DESKTOPS=1.
 import { randomUUID } from "node:crypto";
 import type { ComputerInvokeParams } from "../../../packages/gateway-protocol/src/schema/computer.js";
 import type { OpenClawConfig } from "../../config/types.openclaw.js";
@@ -21,6 +23,7 @@ import {
 } from "./computer-protocol.js";
 import type { HostDesktopService } from "./host-source.js";
 import type { DesktopComputerLease } from "./managed-linux.js";
+import { observeSquidbotDesktops } from "../../squidbot/desktop-gateway.js";
 
 const log = createSubsystemLogger("gateway/computer");
 
@@ -270,6 +273,7 @@ export function createGatewayComputerService(options: {
       };
     },
     async status({ probe = true }: { probe?: boolean } = {}): Promise<GatewayComputerStatus> {
+      observeSquidbotDesktops();
       const result: GatewayComputerStatus = { configured: false, available: false };
       try {
         assertAvailable();

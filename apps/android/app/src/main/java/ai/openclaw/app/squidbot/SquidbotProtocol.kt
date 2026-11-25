@@ -21,16 +21,42 @@ import javax.crypto.spec.SecretKeySpec
 
 private const val PROTOCOL = "Noise_NKpsk0_P256_AESGCM_SHA256"
 
-data class PairingPayload(val code: String)
+data class PairingPayload(
+  val code: String,
+  val host: String = "127.0.0.1",
+  val port: Int = 18790,
+  val fingerprint: String = "",
+)
 
 fun parsePairingPayload(text: String): PairingPayload? {
   val trimmed = text.trim()
+  if (trimmed.startsWith("squidbot-phone://")) {
+    val rest = trimmed.removePrefix("squidbot-phone://")
+    val slash = rest.indexOf('/')
+    if (slash <= 0) return null
+    val hostPort = rest.substring(0, slash)
+    val host = hostPort.substringBefore(':')
+    val port = hostPort.substringAfter(':', "").toIntOrNull() ?: return null
+    val tail = rest.substring(slash + 1)
+    val code = tail.substringBefore('?').uppercase()
+    val fingerprint = tail.substringAfter("fp=", "").substringBefore('&').lowercase()
+    if (!validPairingCode(code) || host.isEmpty() || port !in 1..65535) return null
+    return PairingPayload(code, host, port, fingerprint)
+  }
   val code = when {
     trimmed.startsWith("squidbot-phone:") -> trimmed.removePrefix("squidbot-phone:")
     else -> trimmed
   }.trim().uppercase()
-  if (code.length != 8 || code.any { it !in "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" }) return null
+  if (!validPairingCode(code)) return null
   return PairingPayload(code)
+}
+
+private fun validPairingCode(code: String): Boolean =
+  code.length == 8 && code.all { it in "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" }
+
+fun certificateMatchesPin(der: ByteArray, fingerprint: String): Boolean {
+  val digest = sha256(der).joinToString("") { "%02x".format(it) }
+  return digest.equals(fingerprint.replace(":", ""), ignoreCase = true)
 }
 
 fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(bytes)

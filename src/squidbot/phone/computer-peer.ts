@@ -3,6 +3,7 @@
 
 import { mkdtempSync } from "node:fs";
 import { connect, type Socket } from "node:net";
+import tls from "node:tls";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { evaluateRunAdmission } from "../gate.js";
@@ -35,7 +36,9 @@ export async function attachComputerPeer(input: {
   agentId?: string;
   runner?: PhoneTurnRunner;
 }): Promise<{ close(): void }> {
-  const socket = connect({ host: "127.0.0.1", port: input.relay.port });
+  const socket = input.relay.tls
+    ? tls.connect({ host: "127.0.0.1", port: input.relay.port, rejectUnauthorized: false, servername: "squidbot-phone" })
+    : connect({ host: "127.0.0.1", port: input.relay.port });
   await new Promise<void>((resolve, reject) => {
     socket.once("connect", () => resolve());
     socket.once("error", reject);

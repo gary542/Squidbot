@@ -92,7 +92,7 @@ then treat it as enabled.
 | `SQUIDBOT_BOT_BOX` | 2 | The broker proxies upstream. The seccomp profile is x86_64 only. |
 | `SQUIDBOT_DESKTOPS` | 2 | Podman and SSH desktops can be started and stopped. The viewer is at `/desktops`. |
 | `SQUIDBOT_ROOMS` | 3 | Room turns, sqlite sessions, and the sidebar are wired. `SQUIDBOT_ROOM_DECIDER=model` is optional. |
-| `SQUIDBOT_PHONE_RELAY` | 4 | The listener is loopback-only. The Android client is in `apps/android` and reaches it with `adb reverse tcp:18790 tcp:18790`. |
+| `SQUIDBOT_PHONE_RELAY` | 4 | Loopback unless `SQUIDBOT_PHONE_RELAY_BIND` is `lan` or `0.0.0.0`. An exposed relay uses a local TLS certificate. |
 
 Boat cloud desktops and any paid hosted broker are not included. Nothing here
 spends money or deploys.
@@ -107,7 +107,22 @@ adb reverse tcp:18790 tcp:18790
 ```
 
 An emulator then uses `127.0.0.1:18790` as if the relay were on the phone. Type the
-8-character code, or paste `squidbot-phone:<code>`. Each phone keeps a session
+8-character code, or paste `squidbot-phone:<code>`.
+
+On the same Wi-Fi, set `SQUIDBOT_PHONE_RELAY_BIND=lan` and
+`SQUIDBOT_PHONE_RELAY_ADVERTISE` to this computer's address. The relay prints a
+warning, generates a certificate, and the QR looks like
+`squidbot-phone://192.168.1.20:18790/CODE?fp=<sha256>`. The phone pins that
+fingerprint. `SQUIDBOT_PHONE_RELAY_TLS=proxy` leaves TLS to a proxy you run.
+That mode stays on the default loopback bind. An exposed bind always uses the
+local certificate.
+
+To reach the phone without opening a port, put both machines on a Tailscale
+tailnet you already have and advertise the tailnet address. A Cloudflare
+Tunnel has to be a TCP tunnel to `127.0.0.1:18790`, not an HTTP site, because
+the relay is a framed socket. This tree does not create those accounts.
+
+Each phone keeps a session
 with the default agent (`SQUIDBOT_PHONE_AGENT` chooses another). Assistant
 deltas are forwarded as they are produced. Stop ends the turn. A paused bot, a
 spend cap, or a 300-turn loop shows a short message on the phone. Unpair

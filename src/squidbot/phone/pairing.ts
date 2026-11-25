@@ -31,14 +31,17 @@ export class PairingTable {
   private readonly codes = new Map<string, OpenCode>();
   private readonly devices = new Map<string, { hash: string; revoked: boolean }>();
 
-  issue(now = Date.now()): PairingCode {
+  issue(now = Date.now(), endpoint?: { host: string; port: number; fingerprint?: string | null }): PairingCode {
     let code = "";
     do {
       code = Array.from({ length: 8 }, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
     } while (this.codes.has(code));
     const expiresAt = now + PAIRING_TTL_MS;
     this.codes.set(code, { code, expiresAt, used: false });
-    return { code, qr: `squidbot-phone:${code}`, expiresAt };
+    const qr = endpoint?.fingerprint
+      ? `squidbot-phone://${endpoint.host}:${endpoint.port}/${code}?fp=${endpoint.fingerprint}`
+      : `squidbot-phone:${code}`;
+    return { code, qr, expiresAt };
   }
 
   /** Returns the device token once. A second claim, an expired code, or an unknown code returns null. */

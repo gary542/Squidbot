@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: starts the loopback phone relay when SQUIDBOT_PHONE_RELAY=1.
 /**
  * Lazy public entrypoint for the gateway server implementation.
  *
@@ -126,10 +128,17 @@ async function startGatewayServerLive(
       })());
     };
     close = closeServer;
+    const { startPhoneRelayFromEnv } = await import("../squidbot/phone/gateway.js");
+    const phoneRelay = await startPhoneRelayFromEnv();
+    const closeWithPhone: GatewayServer["close"] = async (closeOptions) => {
+      await phoneRelay?.close();
+      await closeServer(closeOptions);
+    };
+    close = closeWithPhone;
     if (signal?.aborted) {
       const reason = signal.reason;
       return await rethrowGatewayStartupError(reason, () =>
-        closeServer({
+        closeWithPhone({
           reason: String(reason),
           exitAfterClose: opts.exitAfterStartupFailure?.(reason),
         }),
@@ -137,7 +146,7 @@ async function startGatewayServerLive(
     }
     return {
       ...server,
-      close: closeServer,
+      close: closeWithPhone,
     };
   } catch (error) {
     detachOwner?.();

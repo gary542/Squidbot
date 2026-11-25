@@ -3,6 +3,7 @@
 // Modified: a loopback listener. It splices ciphertext and closes 4404 when the phone is not admitted.
 
 import { createServer, type Server, type Socket } from "node:net";
+import { credentialHash, keyId, psk } from "./credentials.js";
 import { generateKeyPair, type KeyPair } from "./noise.js";
 import { PairingTable, type PairingCode, type PairedDevice } from "./pairing.js";
 import { RELAY_ABSENT, relayPhoneDecision } from "./relay.js";
@@ -62,6 +63,7 @@ export interface PhoneRelay {
   issuePairing(now?: number): PairingCode;
   claim(code: string, now?: number): PairedDevice | null;
   revoke(deviceId: string): boolean;
+  phoneKeys(): ReadonlyArray<{ id: string; psk: Buffer }>;
 }
 
 export async function startPhoneRelay(options: { port?: number; maxAttempts?: number } = {}): Promise<PhoneRelay> {
@@ -69,6 +71,7 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
   const hostId = Buffer.alloc(16, 3);
   const staticKey = generateKeyPair();
   const forwarded: Buffer[] = [];
+  const phoneKeys: Array<{ id: string; psk: Buffer }> = [];
   const attempts = new Map<string, number[]>();
   const maxAttempts = options.maxAttempts ?? 30;
   let computer: Socket | undefined;
@@ -104,6 +107,31 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
             spliced = false;
           }
         });
+        return;
+      }
+      if (first.type === "claim" && typeof first.code === "string") {
+        const paired = pairing.claim(first.code, hostId);
+        if (!paired) {
+          writeFrame(socket, { type: "close", code: RELAY_ABSENT });
+          socket.end();
+          return;
+        }
+        phoneKeys.push({ id: paired.id, psk: psk(credentialHash(paired.token), keyId(staticKey.publicKey)) });
+        writeFrame(socket, {
+          type: "paired",
+          deviceId: paired.id,
+          token: paired.token,
+          computerPublicKey: staticKey.publicKey.toString("base64url"),
+          hostId: hostId.toString("base64url"),
+          admissionHash: paired.admissionHash,
+        });
+        socket.end();
+        return;
+      }
+      if (first.type === "revoke" && typeof first.deviceId === "string") {
+        const revoked = pairing.revoke(first.deviceId);
+        writeFrame(socket, revoked ? { type: "revoked", deviceId: first.deviceId } : { type: "close", code: RELAY_ABSENT });
+        socket.end();
         return;
       }
       if (first.type !== "phone" || typeof first.hash !== "string") {
@@ -158,7 +186,15 @@ export async function startPhoneRelay(options: { port?: number; maxAttempts?: nu
     splicedBytes: () => Buffer.concat(forwarded),
     issuePairing: (now) => pairing.issue(now),
     claim: (code, now) => pairing.claim(code, hostId, now),
-    revoke: (id) => pairing.revoke(id),
+    revoke: (id) => {
+      const removed = pairing.revoke(id);
+      if (removed) {
+        const index = phoneKeys.findIndex((entry) => entry.id === id);
+        if (index >= 0) phoneKeys.splice(index, 1);
+      }
+      return removed;
+    },
+    phoneKeys: () => phoneKeys,
     close: () =>
       new Promise((resolve) => {
         computer?.destroy();

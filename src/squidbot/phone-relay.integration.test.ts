@@ -3,9 +3,10 @@
 
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { connectComputer, connectPhone, deliverSealedMessage, phoneMaterial } from "./phone/client.js";
+import { connectComputer, connectPhone, deliverSealedMessage, exchangeChat, phoneMaterial } from "./phone/client.js";
+import { attachComputerPeer } from "./phone/computer-peer.js";
 import { startPhoneRelayFromEnv } from "./phone/gateway.js";
-import { RELAY_RATE_LIMITED, readFrame, startPhoneRelay } from "./phone/listener.js";
+import { RELAY_RATE_LIMITED, readFrame, startPhoneRelay, writeFrame } from "./phone/listener.js";
 import { NoiseError } from "./phone/noise.js";
 import { RELAY_ABSENT } from "./phone/relay.js";
 import { PAIRING_TTL_MS } from "./phone/pairing.js";
@@ -99,6 +100,52 @@ describe("phone relay listener", () => {
       computer.end();
       phone.socket.end();
     } finally {
+      await relay.close();
+    }
+  });
+
+  it("pairs over the relay, chats, and unpairs", async () => {
+    const relay = await startPhoneRelay({ port: 0 });
+    const peer = await attachComputerPeer({ relay });
+    try {
+      await new Promise((resolve) => setImmediate(resolve));
+      const issued = relay.issuePairing();
+      const claim = connect({ host: "127.0.0.1", port: relay.port });
+      await new Promise<void>((resolve, reject) => {
+        claim.once("connect", () => resolve());
+        claim.once("error", reject);
+      });
+      writeFrame(claim, { type: "claim", code: issued.code });
+      const paired = await readFrame(claim);
+      claim.end();
+      assert.equal(paired.type, "paired");
+      assert.equal(typeof paired.token, "string");
+      const material = phoneMaterial(String(paired.token), relay.staticKey.publicKey, relay.hostId);
+      assert.equal(paired.admissionHash, material.admissionHash);
+      const phone = await connectPhone(relay.port, material.admissionHash);
+      assert.ok("socket" in phone);
+      const answer = await exchangeChat({
+        phone: phone.socket,
+        staticKey: relay.staticKey,
+        psk: material.psk,
+        text: "hello squidbot",
+      });
+      assert.equal(answer, "Squidbot: hello squidbot");
+      assert.equal(relay.splicedBytes().includes(Buffer.from("hello squidbot")), false);
+      const revoke = connect({ host: "127.0.0.1", port: relay.port });
+      await new Promise<void>((resolve, reject) => {
+        revoke.once("connect", () => resolve());
+        revoke.once("error", reject);
+      });
+      writeFrame(revoke, { type: "revoke", deviceId: paired.deviceId });
+      const revoked = await readFrame(revoke);
+      assert.equal(revoked.type, "revoked");
+      revoke.end();
+      phone.socket.end();
+      const again = await connectPhone(relay.port, material.admissionHash);
+      assert.deepEqual(again, { code: RELAY_ABSENT });
+    } finally {
+      peer.close();
       await relay.close();
     }
   });

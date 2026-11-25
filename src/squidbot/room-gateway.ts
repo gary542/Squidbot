@@ -4,6 +4,8 @@
 
 import { AssignmentTree } from "./assignments.js";
 import { evaluateRunAdmission, type RunAdmissionHold } from "./gate.js";
+import { decideFromModelText } from "./room-decider.js";
+import { closeRoomStores, loadRooms, saveRoom } from "./room-store.js";
 import {
   decideRoomResponder,
   leadOf,
@@ -11,10 +13,20 @@ import {
   type DeciderChoice,
   type RoomMember,
   type RoomRoute,
+  type RoomRoutingInput,
 } from "./rooms.js";
 
 export { roomsEnabled };
 import { renderRoomPanel, type RoomPanel } from "./room-view.js";
+
+export type RoomTurnRunner = (input: { agentId: string; sessionKey: string; message: string }) => Promise<string>;
+
+let turnRunner: RoomTurnRunner | undefined;
+
+/** Tests inject this. Production uses the agent command. */
+export function setRoomTurnRunner(next?: RoomTurnRunner): void {
+  turnRunner = next;
+}
 
 export const ROOM_TURN_LIMIT = 300;
 
@@ -33,12 +45,46 @@ interface RoomRecord {
   tree: AssignmentTree;
   routedTurns: number;
   stopped?: string;
+  stateDir?: string;
 }
 
 const rooms = new Map<string, RoomRecord>();
 
 export function resetRooms(): void {
   rooms.clear();
+  closeRoomStores();
+}
+
+function persist(room: RoomRecord): void {
+  if (!room.stateDir) return;
+  saveRoom(room.stateDir, {
+    id: room.id,
+    sessionKey: roomSessionKey(room.id),
+    title: room.title,
+    humans: room.humans,
+    members: room.members,
+    messages: room.messages,
+    routedTurns: room.routedTurns,
+    ...(room.stopped ? { stopped: room.stopped } : {}),
+  });
+}
+
+export function reloadRooms(stateDir: string): number {
+  rooms.clear();
+  for (const stored of loadRooms(stateDir)) {
+    rooms.set(stored.id, {
+      id: stored.id,
+      title: stored.title,
+      humans: stored.humans,
+      members: stored.members,
+      messages: stored.messages,
+      tree: new AssignmentTree(),
+      routedTurns: stored.routedTurns,
+      ...(stored.stopped ? { stopped: stored.stopped } : {}),
+      stateDir,
+    });
+  }
+  return rooms.size;
 }
 
 export function roomSessionKey(id: string): string {
@@ -51,8 +97,10 @@ export function openRoom(input: {
   humans?: string[];
   members: RoomMember[];
   env?: NodeJS.ProcessEnv;
+  stateDir?: string;
 }): RoomRecord | null {
   if (!roomsEnabled(input.env)) return null;
+  const stateDir = input.stateDir ?? (input.env?.SQUIDBOT_STATE_DIR?.trim() || undefined);
   const record: RoomRecord = {
     id: input.id,
     title: input.title,
@@ -61,8 +109,10 @@ export function openRoom(input: {
     messages: [],
     tree: new AssignmentTree(),
     routedTurns: 0,
+    ...(stateDir ? { stateDir } : {}),
   };
   rooms.set(input.id, record);
+  persist(record);
   return record;
 }
 
@@ -99,7 +149,9 @@ export async function postRoomMessage(input: {
   text: string;
   env?: NodeJS.ProcessEnv;
   stateDir?: string;
-  choose?: (request: unknown, timeoutMs: number) => Promise<DeciderChoice>;
+  choose?: (request: ReturnType<typeof import("./rooms.js").roomRoutingRequest>, timeoutMs: number) => Promise<DeciderChoice>;
+  decider?: (prompt: string) => Promise<string>;
+  turn?: RoomTurnRunner;
 }): Promise<RoomPostResult> {
   const env = input.env ?? process.env;
   if (!roomsEnabled(env)) return { enabled: false };
@@ -122,21 +174,20 @@ export async function postRoomMessage(input: {
     return finish(room, await handOff(room, input, assignment.assignee, assignment.brief));
   }
   const mention = mentionedMember(input.text, room.members);
+  const routing: RoomRoutingInput = {
+    room: room.title,
+    humans: room.humans,
+    members: room.members,
+    recent: room.messages.slice(-8).map((message) => ({ from: message.from, text: message.text })),
+    message: { from: input.from, text: input.text },
+  };
+  const choose = input.choose ?? (env.SQUIDBOT_ROOM_DECIDER === "model" ? modelChooser(input.decider, room) : undefined);
   const route = mention === "everyone"
     ? { kind: "everyone" as const, probability: 1 }
     : mention
       ? { kind: "member" as const, botId: mention.id, probability: 1 }
-      : input.choose
-        ? await decideRoomResponder(
-            {
-              room: room.title,
-              humans: room.humans,
-              members: room.members,
-              recent: room.messages.slice(-8).map((message) => ({ from: message.from, text: message.text })),
-              message: { from: input.from, text: input.text },
-            },
-            input.choose,
-          )
+      : choose
+        ? await decideRoomResponder(routing, choose)
         : { kind: "fallback" as const, botId: leadOf(room.members), reason: "no_choice" as const };
   const targets = route.kind === "everyone" ? room.members.map((member) => member.id) : [route.botId];
   for (const botId of targets) {
@@ -158,9 +209,37 @@ export async function postRoomMessage(input: {
     }
     room.routedTurns += 1;
     const name = room.members.find((member) => member.id === botId)?.name ?? botId;
-    room.messages.push({ from: name, role: "bot", text: `${name} is answering.` });
+    const reply = await speak(room, botId, input.text);
+    room.messages.push({ from: name, role: "bot", text: reply });
   }
   return finish(room, { route });
+}
+
+function modelChooser(
+  decider: ((prompt: string) => Promise<string>) | undefined,
+  room: RoomRecord,
+): (request: ReturnType<typeof import("./rooms.js").roomRoutingRequest>, timeoutMs: number) => Promise<DeciderChoice> {
+  return async (request, timeoutMs) => {
+    const ask = decider ?? ((prompt: string) => speak(room, leadOf(room.members), prompt));
+    try {
+      const text = await Promise.race([
+        ask(JSON.stringify(request)),
+        new Promise<string>((_, reject) => setTimeout(() => reject(new Error("timeout")), timeoutMs)),
+      ]);
+      return decideFromModelText(text);
+    } catch {
+      return { choice: "", probability: 0 };
+    }
+  };
+}
+
+async function speak(room: RoomRecord, agentId: string, message: string): Promise<string> {
+  const run = turnRunner ?? ((input) => import("./room-turn.js").then((mod) => mod.runRoomAgentTurn(input)));
+  try {
+    return await run({ agentId, sessionKey: roomSessionKey(room.id), message });
+  } catch (error) {
+    return error instanceof Error ? error.message : "agent turn failed";
+  }
 }
 
 async function handOff(
@@ -195,7 +274,8 @@ async function handOff(
     });
     room.tree.start(record.id);
     room.routedTurns += 1;
-    room.messages.push({ from: assignee.name, role: "bot", text: `${assignee.name} took the assignment.` });
+    const reply = await speak(room, assignee.id, brief);
+    room.messages.push({ from: assignee.name, role: "bot", text: reply });
     return { route: { kind: "member", botId: assignee.id, probability: 1 } };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Hand-off stopped.";
@@ -217,6 +297,7 @@ function panelOf(room: RoomRecord): RoomPanel {
 }
 
 function finish(room: RoomRecord, extra: Pick<RoomPostResult, "route" | "hold" | "stopped">): RoomPostResult {
+  persist(room);
   return { enabled: true, key: roomSessionKey(room.id), panel: panelOf(room), ...extra };
 }
 

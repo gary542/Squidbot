@@ -41,7 +41,7 @@ State defaults to `~/.squidbot` unless `OPENCLAW_STATE_DIR` or
 | 0 | Done | Rebranded snapshot, Apache-2.0, attribution headers, `pnpm test:squidbot` |
 | 1 | Done | Usage caps, pause, Composio grants (your project key only), team export and import |
 | 2 | Wired, flag off | Exec uses bubblewrap when `SQUIDBOT_BOT_BOX=1` and `bwrap` exists, otherwise a token-only fallback. Computer status observes per-agent Podman and SSH desktops when `SQUIDBOT_DESKTOPS=1`. |
-| 3 | Wired, flag off | A `room:` session routes between members (0.6, 1.5s, depth 4, 300 turns) when `SQUIDBOT_ROOMS=1`. @mentions and `/assign` delegate. Spend caps and pause still hold. The Control UI page is `/rooms`. |
+| 3 | Wired, flag off | With `SQUIDBOT_ROOMS=1`, the chosen bot runs an agent turn. Rooms are stored in sqlite. Rooms is in the Control UI sidebar. `SQUIDBOT_ROOM_DECIDER=model` asks the model who should answer, and the lead answers if that fails. |
 | 4 | Wired, flag off | A loopback relay listens when `SQUIDBOT_PHONE_RELAY=1`. Pair with a short code, then the phone and computer speak Noise. The relay stores admission hashes and closes 4404 for everyone else. |
 
 ### Caps and pause

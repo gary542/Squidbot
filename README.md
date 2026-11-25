@@ -41,7 +41,7 @@ State defaults to `~/.squidbot` unless `OPENCLAW_STATE_DIR` or
 | 0 | Done | Rebranded snapshot, Apache-2.0, attribution headers, `pnpm test:squidbot` |
 | 1 | Done | Usage caps, pause, Composio grants (your project key only), team export and import |
 | 2 | Wired, flag off | Exec uses bubblewrap when `SQUIDBOT_BOT_BOX=1` and `bwrap` exists, otherwise a token-only fallback. Computer status observes per-agent Podman and SSH desktops when `SQUIDBOT_DESKTOPS=1`. |
-| 3 | Library, flag off | Room responder choice, assignment tree limits, team import rollback |
+| 3 | Wired, flag off | A `room:` session routes between members (0.6, 1.5s, depth 4, 300 turns) when `SQUIDBOT_ROOMS=1`. @mentions and `/assign` delegate. Spend caps and pause still hold. The Control UI page is `/rooms`. |
 | 4 | Library, flag off | Noise handshake and a blind relay admission check (close 4404) |
 
 ### Caps and pause
@@ -91,7 +91,7 @@ then treat it as enabled.
 |---|---|---|
 | `SQUIDBOT_BOT_BOX` | 2 | Exec is wrapped. A live seccomp profile and unix-socket bridge are still open. |
 | `SQUIDBOT_DESKTOPS` | 2 | Podman and SSH plans are observed. The Control UI does not yet embed the viewer. |
-| `SQUIDBOT_ROOMS` | 3 | A room session kind in the session controller, using the gateway decision model |
+| `SQUIDBOT_ROOMS` | 3 | Room sessions and `/rooms` are wired. The caller injects the decision model. |
 | `SQUIDBOT_PHONE_RELAY` | 4 | A listening relay process and a phone client. Mobile apps are not in this repo |
 
 Boat cloud desktops and any paid hosted broker are not included. Nothing here

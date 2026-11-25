@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: /rooms is a Control UI destination for a multi-bot room.
 import { normalizeAtHashSlug } from "@openclaw/normalization-core/string-normalization";
 import {
   inferControlUiFocusBasePath,
@@ -87,6 +89,7 @@ const APP_ROUTE_DEFINITIONS = {
   workboard: { path: "/workboard" },
   worktrees: { path: "/worktrees", aliases: ["/settings/worktrees"] },
   sessions: { path: "/sessions", aliases: ["/settings/sessions"] },
+  rooms: { path: "/rooms" },
   systems: { path: "/systems" },
   usage: { path: "/usage" },
   debug: { path: "/debug" },

@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: the rooms route reuses the sessions title until it has its own label.
 import { isValidWorkboardBoardId } from "@openclaw/workboard-contract";
 import { parseSidebarSessionReference } from "../../packages/gateway-protocol/src/schema/ui-navigation-preferences.ts";
 import { pluginTabForLocation, type PluginTab, type RouteId } from "./app-route-paths.ts";
@@ -322,6 +324,7 @@ const NAVIGATION_PRESENTATION: Record<NavigationRouteId, NavigationPresentation>
   channels: navigationPresentation("link", "channels"),
   connection: navigationPresentation("radio", "connection"),
   sessions: navigationPresentation("fileText", "sessions"),
+  rooms: navigationPresentation("messageSquare", "sessions"),
   systems: navigationPresentation("monitor", "systems"),
   usage: navigationPresentation("coins", "usage"),
   cron: navigationPresentation("calendarClock", "cron"),
@@ -413,7 +416,7 @@ export function formatDocumentTitle(options: {
   attentionCount?: number;
   brandName?: string;
 }): string {
-  const brandName = options.brandName ?? "OpenClaw";
+  const brandName = options.brandName ?? "Squidbot";
   const base = options.context.endsWith(brandName)
     ? options.context
     : `${options.context} — ${brandName}`;

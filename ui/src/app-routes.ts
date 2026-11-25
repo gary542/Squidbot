@@ -1,3 +1,5 @@
+// Adapted from openclaw/openclaw (MIT), modified for Squidbot.
+// Modified: registers the rooms page.
 import { createRouter } from "@openclaw/uirouter";
 import type {
   PageDefinition,
@@ -64,6 +66,7 @@ import { page as portalsPage } from "./pages/portals/route.ts";
 import { page as profilePage } from "./pages/profile/route.ts";
 import { page as searchPage } from "./pages/search/route.ts";
 import { page as secretsPage } from "./pages/secrets/route.ts";
+import { page as roomsPage } from "./pages/rooms/route.ts";
 import { page as sessionsPage } from "./pages/sessions/route.ts";
 import { page as skillWorkshopPage } from "./pages/skill-workshop/route.ts";
 import { pages as skillsPages } from "./pages/skills/route.ts";
@@ -117,6 +120,7 @@ const APP_ROUTE_TREE = [
   workboardPage,
   worktreesPage,
   sessionsPage,
+  roomsPage,
   systemsPage,
   secretsPage,
   searchPage,
